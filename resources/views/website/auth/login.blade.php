@@ -13,15 +13,16 @@ Login | Chomok Restaurant
     <h1 class="auth-title">Welcome Back</h1>
     <p class="auth-subtext">Log in to track your orders and manage your account.</p>
 
-    <form class="auth-form" action="#" method="post">
+    <form class="auth-form" action="{{ route('client.login.submit') }}" method="post">
+      @csrf
       <div class="form-group">
         <label for="login-email">Email Address</label>
-        <input type="email" id="login-email" name="email" placeholder="you@example.com">
+        <input type="email" id="login-email" name="email" value="{{ old('email') }}" placeholder="you@example.com" required>
       </div>
 
       <div class="form-group">
         <label for="login-password">Password</label>
-        <input type="password" id="login-password" name="password" placeholder="Enter your password">
+        <input type="password" id="login-password" name="password" placeholder="Enter your password" required>
       </div>
 
       <div class="auth-form-row">
@@ -29,13 +30,13 @@ Login | Chomok Restaurant
           <input type="checkbox" name="remember">
           Remember me
         </label>
-        <a href="#" class="auth-link">Forgot password?</a>
+        <a href="{{ route('client.password.request') }}" class="auth-link">Forgot password?</a>
       </div>
 
       <button type="submit" class="btn-wc-hero auth-submit">Log In</button>
     </form>
 
-    <p class="auth-switch">Don't have an account? <a href="register.php" class="auth-link">Create one</a></p>
+    <p class="auth-switch">Don't have an account? <a href="{{ route('client.register') }}" class="auth-link">Create one</a></p>
   </div>
 </section>
 @endsection

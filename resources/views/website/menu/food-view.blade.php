@@ -1,148 +1,84 @@
 @extends('website.master.master')
-@section('title')
-Food View | Chomok Restaurant
-@endsection
-
-@section('css')
-@endsection
+@section('title', $menuItem->name.' | '.($siteSetting?->restaurant_name ?? 'Chomok Restaurant'))
+@section('meta_description', \Illuminate\Support\Str::limit(strip_tags($menuItem->description ?: $siteSeoDescription), 155))
 
 @section('body')
 <!-- Food View -->
 <section class="food-view-section">
 
-  <div class="food-view-layout">
+  <div class="food-view-layout" data-menu-card>
 
     <div class="food-view-img-col">
-      <img src="assets/images/food_list/pizza/Margherita.png" alt="Margherita" class="food-view-img">
+      @php($mainImage = $menuItem->images->first())
+      <img src="{{ $mainImage?->image ? $adminAssetUrl($mainImage->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt="{{ $menuItem->name }}" class="food-view-img">
     </div>
 
     <div class="food-view-info-col">
-      <h1 class="food-view-name">Margherita</h1>
-      <p class="food-view-desc">Sauce &amp; Cheese.</p>
+      <h1 class="food-view-name">{{ $menuItem->name }}</h1>
+      <p class="food-view-desc">{{ $menuItem->description }}</p>
 
       <div class="food-view-block">
         <h6 class="food-view-label">Price</h6>
         <div class="menu-item-prices">
-          <span class="price-pill"><input type="radio" name="view-size" class="price-pill-input" checked><em>Regular</em>TK 269</span>
-          <span class="price-pill"><input type="radio" name="view-size" class="price-pill-input"><em>Medium</em>TK 379</span>
-          <span class="price-pill"><input type="radio" name="view-size" class="price-pill-input"><em>Large</em>TK 515</span>
+          @foreach($menuItem->prices as $price)
+            <label class="price-pill">
+              <input type="radio" name="view-size" value="{{ $price->id }}" data-price-for="{{ $menuItem->id }}" class="price-pill-input" @checked($loop->first)>
+              <em>{{ $price->size_label ?: 'Regular' }}</em>TK {{ rtrim(rtrim(number_format((float)$price->effective_price, 2, '.', ''), '0'), '.') }}
+            </label>
+          @endforeach
         </div>
       </div>
 
-      <div class="food-view-block">
-        <h6 class="food-view-label">Add-Ons</h6>
-        <div class="addon-list">
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Extra Cheese</span>
-            <span class="addon-item-price">+TK 40</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Mushrooms</span>
-            <span class="addon-item-price">+TK 30</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Jalapenos</span>
-            <span class="addon-item-price">+TK 25</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Olives</span>
-            <span class="addon-item-price">+TK 25</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Extra Sauce</span>
-            <span class="addon-item-price">+TK 20</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Extra Patty</span>
-            <span class="addon-item-price">+TK 80</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Cheese Dip</span>
-            <span class="addon-item-price">+TK 35</span>
-          </label>
-          <label class="addon-item">
-            <span class="addon-item-check"><input type="checkbox"></span>
-            <span class="addon-item-name">Garlic Butter</span>
-            <span class="addon-item-price">+TK 25</span>
-          </label>
+      @if($menuItem->addons->isNotEmpty())
+        <div class="food-view-block">
+          <h6 class="food-view-label">Add-Ons</h6>
+          <div class="addon-list">
+            @foreach($menuItem->addons as $addon)
+              <label class="addon-item">
+                <span class="addon-item-check"><input type="checkbox" tabindex="-1" onclick="return false"></span>
+                <span class="addon-item-name">{{ $addon->name }}</span>
+                <span class="addon-item-price">+TK {{ rtrim(rtrim(number_format((float)$addon->price, 2, '.', ''), '0'), '.') }}</span>
+              </label>
+            @endforeach
+          </div>
         </div>
-      </div>
+      @endif
 
       <div class="food-view-footer">
-        <div class="food-view-qty">
-          <button type="button" class="qty-btn" aria-label="Decrease quantity">&minus;</button>
-          <span class="qty-value">1</span>
-          <button type="button" class="qty-btn" aria-label="Increase quantity">+</button>
+        <div class="food-view-qty" data-food-qty-wrap>
+          <button type="button" class="qty-btn" data-food-qty="-1" aria-label="Decrease quantity">&minus;</button>
+          <span class="qty-value" data-food-qty-value>1</span>
+          <button type="button" class="qty-btn" data-food-qty="1" aria-label="Increase quantity">+</button>
         </div>
-        <button type="button" class="btn-add-cart food-view-add-btn">Add to Cart &mdash; TK 269</button>
+        <button type="button" class="btn-add-cart food-view-add-btn"
+          data-add-cart
+          data-menu-item-id="{{ $menuItem->id }}"
+          data-default-price-id="{{ $menuItem->prices->first()?->id }}"
+          data-has-addons="{{ $menuItem->addons->isNotEmpty() ? '1' : '0' }}"
+          data-configure-url="{{ route('menu.configuration', $menuItem) }}"
+          data-quantity-source="[data-food-qty-value]">Add to Cart</button>
       </div>
     </div>
 
   </div>
 
-  <!-- Suggestions -->
-  <div class="food-view-suggestions">
-    <div class="menu-section-head">
-      <span class="badge-text">You Might Also Like</span>
-      <h2 class="menu-section-title">Pair It With</h2>
+  @if($suggestions->isNotEmpty())
+    <!-- Suggestions -->
+    <div class="food-view-suggestions">
+      <div class="menu-section-head">
+        <span class="badge-text">You Might Also Like</span>
+        <h2 class="menu-section-title">Pair It With</h2>
+      </div>
+      <div class="menu-grid-2">
+        @include('website.menu.partials.cards', ['items' => $suggestions])
+      </div>
     </div>
-
-    <div class="menu-grid-2">
-
-      <div class="food-card-v" data-category="burgers">
-        <a href="food-view.php" class="food-card-v-img"><img src="assets/images/food_list/burger/Classic-Burger.png" alt="Classic Burger" class="menu-item-img"></a>
-        <h3 class="menu-item-name">Classic Burger</h3>
-        <div class="menu-item-prices">
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Chicken</em>TK 245</span>
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Beef</em>TK 275</span>
-        </div>
-        <button type="button" class="btn-add-cart">Add to Cart</button>
-      </div>
-
-      <div class="food-card-v" data-category="burgers">
-        <a href="food-view.php" class="food-card-v-img"><img src="assets/images/food_list/burger/Chatgaiya-Burger.png" alt="Chatgaiya Burger" class="menu-item-img"></a>
-        <h3 class="menu-item-name">Chatgaiya Burger</h3>
-        <div class="menu-item-prices">
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Chicken</em>TK 385</span>
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Beef</em>TK 425</span>
-        </div>
-        <button type="button" class="btn-add-cart">Add to Cart</button>
-      </div>
-
-      <div class="food-card-v" data-category="pizza">
-        <a href="food-view.php" class="food-card-v-img"><img src="assets/images/food_list/pizza/NY-BBQ.png" alt="NY BBQ" class="menu-item-img"></a>
-        <h3 class="menu-item-name">NY BBQ</h3>
-        <div class="menu-item-prices">
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Regular</em>TK 435</span>
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Medium</em>TK 515</span>
-          <span class="price-pill"><input type="radio" class="price-pill-input"><em>Large</em>TK 715</span>
-        </div>
-        <button type="button" class="btn-add-cart">Add to Cart</button>
-      </div>
-
-      <div class="food-card-v" data-category="pasta">
-        <a href="food-view.php" class="food-card-v-img"><img src="assets/images/food_list/pasta/Naga-Pasta.png" alt="Naga Pasta" class="menu-item-img"></a>
-        <h3 class="menu-item-name">Naga Pasta</h3>
-        <div class="menu-item-price">TK 329</div>
-        <button type="button" class="btn-add-cart">Add to Cart</button>
-      </div>
-
-    </div>
-  </div>
+  @endif
 
 </section>
 
 @include('website.include.cta')
 @endsection
 
-
 @section('scripts')
-
 @endsection

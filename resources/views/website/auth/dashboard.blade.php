@@ -1,21 +1,23 @@
 @extends('website.master.master')
-@section('title')
-Dashboard | Chomok Restaurant
-@endsection
-
-@section('css')
-@endsection
+@section('title', 'Dashboard | '.($siteSetting?->restaurant_name ?? 'Chomok Restaurant'))
 
 @section('body')
+@php
+  $statusClass = fn (string $status) => match ($status) {
+    'delivered' => 'is-delivered',
+    'cancelled' => 'is-cancelled',
+    default => 'is-processing',
+  };
+@endphp
 <!-- User Dashboard -->
 <section class="dashboard-section">
   <div class="dashboard-layout">
 
     <aside class="dashboard-sidebar">
       <div class="dashboard-user">
-        <div class="dashboard-avatar" aria-hidden="true">R</div>
-        <h3 class="dashboard-username">Rakib Hossain</h3>
-        <p class="dashboard-email">customer@example.com</p>
+        <div class="dashboard-avatar" aria-hidden="true">{{ strtoupper(mb_substr($client->name, 0, 1)) }}</div>
+        <h3 class="dashboard-username">{{ $client->name }}</h3>
+        <p class="dashboard-email">{{ $client->email }}</p>
       </div>
 
       <ul class="dashboard-nav" role="tablist">
@@ -30,7 +32,8 @@ Dashboard | Chomok Restaurant
         </li>
       </ul>
 
-      <a href="login.php" class="btn-logout">Logout</a>
+      <a href="{{ route('logout') }}" class="btn-logout" onclick="event.preventDefault(); document.getElementById('clientLogoutForm').submit();">Logout</a>
+      <form id="clientLogoutForm" action="{{ route('logout') }}" method="post" class="d-none">@csrf</form>
     </aside>
 
     <div class="dashboard-content">
@@ -38,18 +41,17 @@ Dashboard | Chomok Restaurant
 
         <!-- Overview -->
         <div class="tab-pane fade show active" id="overview-pane" role="tabpanel" aria-labelledby="overview-tab">
-
           <div class="dashboard-stats">
             <div class="dashboard-stat-card">
-              <span class="stat-number">18</span>
+              <span class="stat-number">{{ $summary['total'] }}</span>
               <span class="stat-label">Total Orders</span>
             </div>
             <div class="dashboard-stat-card">
-              <span class="stat-number">2</span>
+              <span class="stat-number">{{ $summary['pending'] }}</span>
               <span class="stat-label">Active Orders</span>
             </div>
             <div class="dashboard-stat-card">
-              <span class="stat-number">TK 12,450</span>
+              <span class="stat-number">TK {{ number_format($summary['spent'], 0) }}</span>
               <span class="stat-label">Total Spent</span>
             </div>
           </div>
@@ -62,137 +64,67 @@ Dashboard | Chomok Restaurant
           <div class="orders-table-wrap">
             <table class="orders-table">
               <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Date</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                </tr>
+                <tr><th>Order ID</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>#CH10234</td>
-                  <td>28 Jul 2026</td>
-                  <td>Margherita Pizza, Beverage</td>
-                  <td>TK 384</td>
-                  <td><span class="order-status is-delivered">Delivered</span></td>
-                </tr>
-                <tr>
-                  <td>#CH10233</td>
-                  <td>25 Jul 2026</td>
-                  <td>Classic Burger, Fries</td>
-                  <td>TK 424</td>
-                  <td><span class="order-status is-processing">Processing</span></td>
-                </tr>
-                <tr>
-                  <td>#CH10229</td>
-                  <td>20 Jul 2026</td>
-                  <td>Broast Chicken (4 Pcs)</td>
-                  <td>TK 549</td>
-                  <td><span class="order-status is-cancelled">Cancelled</span></td>
-                </tr>
+                @forelse($orders->take(3) as $order)
+                  <tr>
+                    <td>{{ $order->order_number }}</td>
+                    <td>{{ $order->created_at?->format('d M Y') }}</td>
+                    <td>{{ $order->items->pluck('item_name')->take(2)->implode(', ') }}{{ $order->items->count() > 2 ? '...' : '' }}</td>
+                    <td>TK {{ number_format((float)$order->grand_total, 0) }}</td>
+                    <td><span class="order-status {{ $statusClass($order->status) }}">{{ ucfirst($order->status) }}</span></td>
+                  </tr>
+                @empty
+                  <tr><td colspan="5">No orders found.</td></tr>
+                @endforelse
               </tbody>
             </table>
           </div>
-
         </div>
 
         <!-- Order History -->
         <div class="tab-pane fade" id="orders-pane" role="tabpanel" aria-labelledby="orders-tab">
-
           <h2 class="dashboard-section-title">Order History</h2>
-
           <div class="orders-table-wrap">
             <table class="orders-table">
               <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Date</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
+                <tr><th>Order ID</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>#CH10234</td>
-                  <td>28 Jul 2026</td>
-                  <td>Margherita Pizza, Beverage</td>
-                  <td>TK 384</td>
-                  <td><span class="order-status is-delivered">Delivered</span></td>
-                  <td><button type="button" class="order-view-btn" data-bs-toggle="modal" data-bs-target="#orderDetailsModal">View</button></td>
-                </tr>
-                <tr>
-                  <td>#CH10233</td>
-                  <td>25 Jul 2026</td>
-                  <td>Classic Burger, Fries</td>
-                  <td>TK 424</td>
-                  <td><span class="order-status is-processing">Processing</span></td>
-                  <td><button type="button" class="order-view-btn" data-bs-toggle="modal" data-bs-target="#orderDetailsModal">View</button></td>
-                </tr>
-                <tr>
-                  <td>#CH10229</td>
-                  <td>20 Jul 2026</td>
-                  <td>Broast Chicken (4 Pcs)</td>
-                  <td>TK 549</td>
-                  <td><span class="order-status is-cancelled">Cancelled</span></td>
-                  <td><button type="button" class="order-view-btn" data-bs-toggle="modal" data-bs-target="#orderDetailsModal">View</button></td>
-                </tr>
-                <tr>
-                  <td>#CH10218</td>
-                  <td>12 Jul 2026</td>
-                  <td>Pizza Supreme, Naga Pasta</td>
-                  <td>TK 928</td>
-                  <td><span class="order-status is-delivered">Delivered</span></td>
-                  <td><button type="button" class="order-view-btn" data-bs-toggle="modal" data-bs-target="#orderDetailsModal">View</button></td>
-                </tr>
-                <tr>
-                  <td>#CH10201</td>
-                  <td>3 Jul 2026</td>
-                  <td>Ultimate Smashed, Coleslaw</td>
-                  <td>TK 520</td>
-                  <td><span class="order-status is-delivered">Delivered</span></td>
-                  <td><button type="button" class="order-view-btn" data-bs-toggle="modal" data-bs-target="#orderDetailsModal">View</button></td>
-                </tr>
+                @forelse($orders as $order)
+                  <tr>
+                    <td>{{ $order->order_number }}</td>
+                    <td>{{ $order->created_at?->format('d M Y') }}</td>
+                    <td>{{ $order->items->pluck('item_name')->take(2)->implode(', ') }}{{ $order->items->count() > 2 ? '...' : '' }}</td>
+                    <td>TK {{ number_format((float)$order->grand_total, 0) }}</td>
+                    <td><span class="order-status {{ $statusClass($order->status) }}">{{ ucfirst($order->status) }}</span></td>
+                    <td><button type="button" class="order-view-btn" data-order-view data-order-url="{{ route('client.view-order', $order->id) }}">View</button></td>
+                  </tr>
+                @empty
+                  <tr><td colspan="6">No orders found.</td></tr>
+                @endforelse
               </tbody>
             </table>
           </div>
-
+          @if($orders->hasPages())<div class="mt-3">{{ $orders->links() }}</div>@endif
         </div>
 
         <!-- Account Information -->
         <div class="tab-pane fade" id="account-pane" role="tabpanel" aria-labelledby="account-tab">
-
           <h2 class="dashboard-section-title">Account Information</h2>
-
-          <form class="contact-form dashboard-account-form" action="#" method="post">
+          <form class="contact-form dashboard-account-form" action="{{ route('client.update-profile') }}" method="post">
+            @csrf
             <div class="form-row">
-              <div class="form-group">
-                <label for="account-name">Full Name</label>
-                <input type="text" id="account-name" name="name" value="Rakib Hossain">
-              </div>
-              <div class="form-group">
-                <label for="account-email">Email Address</label>
-                <input type="email" id="account-email" name="email" value="customer@example.com">
-              </div>
+              <div class="form-group"><label for="account-name">Full Name</label><input type="text" id="account-name" name="name" value="{{ old('name', $client->name) }}" required></div>
+              <div class="form-group"><label for="account-email">Email Address</label><input type="email" id="account-email" name="email" value="{{ old('email', $client->email) }}" required></div>
             </div>
-
             <div class="form-row">
-              <div class="form-group">
-                <label for="account-phone">Phone Number</label>
-                <input type="tel" id="account-phone" name="phone" value="+880 XXX-XXXXXX">
-              </div>
-              <div class="form-group">
-                <label for="account-address">Delivery Address</label>
-                <input type="text" id="account-address" name="address" value="394 Brothers Mansion, East Rampur, Halishahar, Chittagong.">
-              </div>
+              <div class="form-group"><label for="account-phone">Phone Number</label><input type="tel" id="account-phone" name="phone" value="{{ old('phone', $client->phone) }}" required></div>
+              <div class="form-group"><label for="account-address">Delivery Address</label><input type="text" id="account-address" name="address" value="{{ old('address', $client->address) }}"></div>
             </div>
-
             <button type="submit" class="btn-wc-hero">Save Changes</button>
           </form>
-
         </div>
 
       </div>
@@ -200,36 +132,60 @@ Dashboard | Chomok Restaurant
   </div>
 </section>
 
-<!-- Order Details Modal -->
 <div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content order-details-modal-content">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="orderDetailsModalLabel">Order #CH10234</h5>
+        <h5 class="modal-title" id="orderDetailsModalLabel">Order Details</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <div class="order-detail-row"><span>Date</span><span>28 Jul 2026</span></div>
-        <div class="order-detail-row"><span>Branch</span><span>Head Office</span></div>
-        <div class="order-detail-row"><span>Payment</span><span>Cash on Delivery</span></div>
-        <div class="order-detail-row"><span>Status</span><span class="order-status is-delivered">Delivered</span></div>
-
-        <hr>
-
-        <div class="order-detail-item"><span>Margherita Pizza (Regular)</span><span>TK 269</span></div>
-        <div class="order-detail-item"><span>Beverage (Fountain)</span><span>TK 65</span></div>
-        <div class="order-detail-item"><span>Delivery Fee</span><span>TK 50</span></div>
-
-        <hr>
-
-        <div class="order-detail-row order-detail-total"><span>Total</span><span>TK 384</span></div>
+      <div class="modal-body" id="orderDetailsModalBody">
+        <div class="text-center py-5">Loading order details...</div>
       </div>
     </div>
   </div>
 </div>
+
 @endsection
 
-
 @section('scripts')
+<script>
+document.getElementById('viewAllOrdersBtn')?.addEventListener('click', function () {
+  document.getElementById('orders-tab')?.click();
+});
 
+(function () {
+  const modalEl = document.getElementById('orderDetailsModal');
+  const modalBody = document.getElementById('orderDetailsModalBody');
+  const modalTitle = document.getElementById('orderDetailsModalLabel');
+  const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+
+  document.addEventListener('click', async function (event) {
+    const button = event.target.closest('[data-order-view]');
+    if (!button || !modal || !modalBody) return;
+    event.preventDefault();
+
+    modalTitle.textContent = 'Order Details';
+    modalBody.innerHTML = '<div class="text-center py-5">Loading order details...</div>';
+    modal.show();
+
+    try {
+      const response = await fetch(button.dataset.orderUrl, {
+        headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        cache: 'no-store'
+      });
+      if (response.status === 401 || response.status === 419) {
+        window.location.href = @json(route('client.login'));
+        return;
+      }
+      if (!response.ok) throw new Error('Unable to load order details.');
+      const data = await response.json();
+      modalTitle.textContent = data.title || 'Order Details';
+      modalBody.innerHTML = data.html || '<div class="text-center py-5">Order details are unavailable.</div>';
+    } catch (error) {
+      modalBody.innerHTML = '<div class="text-center py-5 text-danger">'+error.message+'</div>';
+    }
+  });
+})();
+</script>
 @endsection
