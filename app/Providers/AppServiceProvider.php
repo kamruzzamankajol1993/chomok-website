@@ -41,6 +41,14 @@ class AppServiceProvider extends ServiceProvider
             return $adminBaseUrl.'/'.ltrim($path, '/');
         };
 
+        $whatsappNumber = preg_replace('/\D+/', '', (string) ($setting?->phone ?? ''));
+        if (str_starts_with($whatsappNumber, '00')) {
+            $whatsappNumber = substr($whatsappNumber, 2);
+        } elseif ($whatsappNumber !== '' && str_starts_with($whatsappNumber, '0')) {
+            $whatsappNumber = '88'.$whatsappNumber;
+        }
+        $whatsappUrl = $whatsappNumber !== '' ? 'https://wa.me/'.$whatsappNumber : null;
+
         $websiteBaseUrl = rtrim((string) ($setting?->website_url ?: config('app.url')), '/');
         $siteLinkUrl = static function (?string $link, ?string $fallback = null) use ($websiteBaseUrl): string {
             $link = trim((string) $link);
@@ -69,6 +77,7 @@ class AppServiceProvider extends ServiceProvider
 
         View::share([
             'siteSetting' => $setting,
+            'whatsappUrl' => $whatsappUrl,
             'adminPanelBaseUrl' => $adminBaseUrl,
             'adminAssetUrl' => $adminAssetUrl,
             'siteLinkUrl' => $siteLinkUrl,

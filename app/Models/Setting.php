@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Setting extends Model
 {
     protected $fillable = [
-        'restaurant_name', 'website_url', 'admin_panel_url', 'address', 'logo', 'icon',
+        'restaurant_name', 'website_url', 'admin_panel_url', 'address', 'phone', 'logo', 'icon',
         'opening_time', 'closing_time', 'tax_rate', 'tax_label',
         'tax_registration_number', 'service_charge', 'tax_included',
         'invoice_prefix', 'invoice_starting_number', 'invoice_footer_note',

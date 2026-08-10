@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="{{ asset('public/website/assets/css/style.css') }}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   @yield('css')
+    @include('components.password-toggle-assets')
 </head>
 <body>
 

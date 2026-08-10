@@ -19,9 +19,11 @@
           <div class="form-group"><label for="checkout-postcode">Postal Code</label><input type="text" id="checkout-postcode" name="postcode" value="{{ old('postcode') }}" placeholder="4000"></div>
         </div>
         <div class="form-group">
-          <label for="checkout-branch">Select Branch</label>
-          <select id="checkout-branch" name="branch_id" required>
-            @foreach($branches as $branch)<option value="{{ $branch->id }}" @selected((string)old('branch_id',$client->branch_id)===(string)$branch->id)>{{ $branch->name }}{{ $branch->address ? ' — '.$branch->address : '' }}</option>@endforeach
+          <label for="checkout-branch">Select Branch <span aria-hidden="true">*</span></label>
+          <p class="form-help" style="margin:0 0 .55rem;"><strong>NB:</strong> Please select your branch carefully. Branch selection is mandatory.</p>
+          <select id="checkout-branch" name="branch_id" required aria-required="true">
+            <option value="" disabled @selected(blank(old('branch_id')))>Choose a branch</option>
+            @foreach($branches as $branch)<option value="{{ $branch->id }}" @selected((string)old('branch_id')===(string)$branch->id)>{{ $branch->name }}{{ $branch->address ? ' — '.$branch->address : '' }}</option>@endforeach
           </select>
         </div>
         <div class="form-group"><label for="checkout-notes">Delivery Notes (Optional)</label><textarea id="checkout-notes" name="notes" rows="3" placeholder="E.g. Ring the bell, leave at the gate...">{{ old('notes') }}</textarea></div>
