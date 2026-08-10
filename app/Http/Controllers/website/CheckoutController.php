@@ -46,6 +46,14 @@ class CheckoutController extends Controller
             'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($q) => $q->where('status', 'active')->where('accepting_orders', 1)->whereNull('deleted_at'))],
             'notes' => ['nullable', 'string', 'max:3000'],
             'payment' => ['required', Rule::in(['cod', 'bkash', 'nagad', 'card'])],
+            'payment_reference' => [
+                Rule::requiredIf(fn () => in_array($request->input('payment'), ['bkash', 'nagad', 'card'], true)),
+                'nullable',
+                'string',
+                'max:255',
+            ],
+        ], [
+            'payment_reference.required' => 'Reference number is required for bKash, Nagad, or Card payments.',
         ]);
 
         $client = Auth::guard('client')->user();
@@ -68,7 +76,7 @@ class CheckoutController extends Controller
             'discount_type' => 'fixed',
             'discount_value' => 0,
             'payment_type' => $paymentType,
-            'payment_reference' => $paymentType === 'cash_on_delivery' ? null : 'Website checkout: '.strtoupper($data['payment']),
+            'payment_reference' => $paymentType === 'cash_on_delivery' ? null : trim($data['payment_reference']),
             'paid_amount' => 0,
             'status' => 'pending',
             'note' => $data['notes'] ?? null,

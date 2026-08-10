@@ -35,6 +35,11 @@
           <label class="price-pill payment-pill"><input type="radio" name="payment" value="nagad" class="price-pill-input" @checked(old('payment')==='nagad')>Nagad</label>
           <label class="price-pill payment-pill"><input type="radio" name="payment" value="card" class="price-pill-input" @checked(old('payment')==='card')>Card</label>
         </div>
+        <div class="form-group" id="payment-reference-wrap" @if(!in_array(old('payment'), ['bkash','nagad','card'], true)) style="display:none;" @endif>
+          <label for="payment-reference">Reference Number <span aria-hidden="true">*</span></label>
+          <input type="text" id="payment-reference" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Enter payment reference number" maxlength="255" autocomplete="off" @if(in_array(old('payment'), ['bkash','nagad','card'], true)) required aria-required="true" @endif>
+          <p class="form-help" style="margin:.45rem 0 0;">Required for bKash, Nagad and Card payments.</p>
+        </div>
       </div>
 
       <div class="checkout-summary">
@@ -57,4 +62,31 @@
     </div>
   </form>
 </section>
+@endsection
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const paymentInputs = document.querySelectorAll('input[name="payment"]');
+  const referenceWrap = document.getElementById('payment-reference-wrap');
+  const referenceInput = document.getElementById('payment-reference');
+  const referenceMethods = ['bkash', 'nagad', 'card'];
+
+  function syncPaymentReference() {
+    const selected = document.querySelector('input[name="payment"]:checked');
+    const isRequired = selected && referenceMethods.includes(selected.value);
+
+    if (referenceWrap) referenceWrap.style.display = isRequired ? '' : 'none';
+    if (referenceInput) {
+      referenceInput.required = Boolean(isRequired);
+      referenceInput.setAttribute('aria-required', isRequired ? 'true' : 'false');
+      if (!isRequired) referenceInput.value = '';
+    }
+  }
+
+  paymentInputs.forEach(function (input) {
+    input.addEventListener('change', syncPaymentReference);
+  });
+  syncPaymentReference();
+});
+</script>
 @endsection
