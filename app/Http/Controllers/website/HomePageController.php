@@ -26,10 +26,11 @@ class HomePageController extends Controller
             ->where('is_active', true)
             ->with(['menuItems' => function ($query): void {
                 $query->where('is_active', true)
-                    ->with(['prices', 'mainImage', 'addons' => fn ($q) => $q->where('is_active', true)])
-                    ->orderBy('id');
+                    ->with(['prices.variationAddons', 'mainImage', 'addons' => fn ($q) => $q->where('is_active', true)])
+                    //->orderBy('name', 'asc')
+                    ->orderBy('id', 'asc');
             }])
-            ->orderBy('name')
+            ->orderBy('id', 'asc')
             ->get()
             ->filter(fn (Category $category) => $category->menuItems->isNotEmpty())
             ->values();

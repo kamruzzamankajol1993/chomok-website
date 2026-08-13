@@ -85,6 +85,7 @@ class CheckoutController extends Controller
                 'menu_item_price_id' => (int) $row['menu_item_price_id'],
                 'quantity' => (int) $row['quantity'],
                 'addon_ids' => array_values($row['addon_ids'] ?? []),
+                'price_addon_ids' => array_values($row['price_addon_ids'] ?? []),
             ])->values()->all(),
         ];
 

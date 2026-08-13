@@ -71,7 +71,20 @@
                   <tr>
                     <td>{{ $order->order_number }}</td>
                     <td>{{ $order->created_at?->format('d M Y') }}</td>
-                    <td>{{ $order->items->pluck('item_name')->take(2)->implode(', ') }}{{ $order->items->count() > 2 ? '...' : '' }}</td>
+                    <td>
+                      @foreach($order->items->take(2) as $item)
+                        <div class="mb-1">
+                          <strong>{{ $item->item_name }}</strong>
+                          @if($item->addons->isNotEmpty())
+                            @foreach($item->addons as $addon)
+                              @php($addonDescription = $addon->description ?: $addon->menuItemPriceAddon?->description ?: $addon->addon?->description)
+                              <small class="d-block">+ {{ $addon->addon_name }}@if(filled($addonDescription)) — <span class="text-muted">{{ $addonDescription }}</span>@endif</small>
+                            @endforeach
+                          @endif
+                        </div>
+                      @endforeach
+                      @if($order->items->count() > 2)<small>+{{ $order->items->count() - 2 }} more item(s)</small>@endif
+                    </td>
                     <td>TK {{ number_format((float)$order->grand_total, 0) }}</td>
                     <td><span class="order-status {{ $statusClass($order->status) }}">{{ ucfirst($order->status) }}</span></td>
                   </tr>
@@ -96,7 +109,20 @@
                   <tr>
                     <td>{{ $order->order_number }}</td>
                     <td>{{ $order->created_at?->format('d M Y') }}</td>
-                    <td>{{ $order->items->pluck('item_name')->take(2)->implode(', ') }}{{ $order->items->count() > 2 ? '...' : '' }}</td>
+                    <td>
+                      @foreach($order->items->take(2) as $item)
+                        <div class="mb-1">
+                          <strong>{{ $item->item_name }}</strong>
+                          @if($item->addons->isNotEmpty())
+                            @foreach($item->addons as $addon)
+                              @php($addonDescription = $addon->description ?: $addon->menuItemPriceAddon?->description ?: $addon->addon?->description)
+                              <small class="d-block">+ {{ $addon->addon_name }}@if(filled($addonDescription)) — <span class="text-muted">{{ $addonDescription }}</span>@endif</small>
+                            @endforeach
+                          @endif
+                        </div>
+                      @endforeach
+                      @if($order->items->count() > 2)<small>+{{ $order->items->count() - 2 }} more item(s)</small>@endif
+                    </td>
                     <td>TK {{ number_format((float)$order->grand_total, 0) }}</td>
                     <td><span class="order-status {{ $statusClass($order->status) }}">{{ ucfirst($order->status) }}</span></td>
                     <td><button type="button" class="order-view-btn" data-order-view data-order-url="{{ route('client.view-order', $order->id) }}">View</button></td>

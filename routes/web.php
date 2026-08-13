@@ -49,6 +49,9 @@ Route::prefix('client')->name('client.')->middleware('guest:client')->group(func
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:8,1')->name('login.submit');
     Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:8,1')->name('register.submit');
+    Route::get('/register/verify', [AuthController::class, 'showRegistrationVerificationForm'])->name('register.verify');
+    Route::post('/register/verify', [AuthController::class, 'verifyRegistrationOtp'])->middleware('throttle:10,1')->name('register.verify.submit');
+    Route::post('/register/resend-code', [AuthController::class, 'resendRegistrationOtp'])->middleware('throttle:5,1')->name('register.resend');
     Route::get('/forgot-password', [AuthController::class, 'showLinkRequestForm'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'verifyEmail'])->middleware('throttle:8,1')->name('password.verify-email');
     Route::get('/reset-password', [AuthController::class, 'showResetForm'])->name('password.reset.form');

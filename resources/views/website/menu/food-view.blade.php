@@ -3,6 +3,12 @@
 @section('meta_description', \Illuminate\Support\Str::limit(strip_tags($menuItem->description ?: $siteSeoDescription), 155))
 
 @section('body')
+@php
+  $requestedPriceId = (int) request()->query('price_id', 0);
+  $selectedPrice = $menuItem->prices->first(fn ($price) => (int) $price->id === $requestedPriceId)
+      ?? $menuItem->prices->first();
+  $selectedPriceId = (int) ($selectedPrice?->id ?? 0);
+@endphp
 <!-- Food View -->
 <section class="food-view-section">
 
@@ -22,11 +28,30 @@
         <div class="menu-item-prices">
           @foreach($menuItem->prices as $price)
             <label class="price-pill">
-              <input type="radio" name="view-size" value="{{ $price->id }}" data-price-for="{{ $menuItem->id }}" class="price-pill-input" @checked($loop->first)>
+              <input type="radio" name="view-size" value="{{ $price->id }}" data-price-for="{{ $menuItem->id }}" class="price-pill-input" @checked((int) $selectedPriceId === (int) $price->id)>
               <em>{{ $price->size_label ?: 'Regular' }}</em>TK {{ rtrim(rtrim(number_format((float)$price->effective_price, 2, '.', ''), '0'), '.') }}
             </label>
           @endforeach
         </div>
+
+        @if($menuItem->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty()))
+          @foreach($menuItem->prices as $price)
+            @if($price->variationAddons->isNotEmpty())
+              <div data-food-variation-addon-group data-price-id="{{ $price->id }}" class="{{ (int) $selectedPriceId === (int) $price->id ? '' : 'd-none' }}">
+                <h6 class="food-view-label">{{ $price->size_label ?: 'Regular' }} Add-Ons</h6>
+                <div class="addon-list">
+                  @foreach($price->variationAddons as $variationAddon)
+                    <label class="addon-item">
+                      <span class="addon-item-check"><input type="checkbox" name="price_addon_ids[]" value="{{ $variationAddon->id }}"></span>
+                      <span class="addon-item-name">{{ $variationAddon->name }}@if(filled($variationAddon->description))<small class="d-block text-muted">{{ $variationAddon->description }}</small>@endif</span>
+                      <span class="addon-item-price">+TK {{ rtrim(rtrim(number_format((float)$variationAddon->price, 2, '.', ''), '0'), '.') }}</span>
+                    </label>
+                  @endforeach
+                </div>
+              </div>
+            @endif
+          @endforeach
+        @endif
       </div>
 
       @if($menuItem->addons->isNotEmpty())
@@ -35,14 +60,15 @@
           <div class="addon-list">
             @foreach($menuItem->addons as $addon)
               <label class="addon-item">
-                <span class="addon-item-check"><input type="checkbox" tabindex="-1" onclick="return false"></span>
-                <span class="addon-item-name">{{ $addon->name }}</span>
+                <span class="addon-item-check"><input type="checkbox" name="addon_ids[]" value="{{ $addon->id }}"></span>
+                <span class="addon-item-name">{{ $addon->name }}@if(filled($addon->description))<small class="d-block text-muted">{{ $addon->description }}</small>@endif</span>
                 <span class="addon-item-price">+TK {{ rtrim(rtrim(number_format((float)$addon->price, 2, '.', ''), '0'), '.') }}</span>
               </label>
             @endforeach
           </div>
         </div>
       @endif
+
 
       <div class="food-view-footer">
         <div class="food-view-qty" data-food-qty-wrap>
@@ -53,9 +79,9 @@
         <button type="button" class="btn-add-cart food-view-add-btn"
           data-add-cart
           data-menu-item-id="{{ $menuItem->id }}"
-          data-default-price-id="{{ $menuItem->prices->first()?->id }}"
-          data-has-addons="{{ $menuItem->addons->isNotEmpty() ? '1' : '0' }}"
-          data-configure-url="{{ route('menu.configuration', $menuItem) }}"
+          data-default-price-id="{{ $selectedPriceId }}"
+          data-has-addons="{{ ($menuItem->addons->isNotEmpty() || $menuItem->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty())) ? '1' : '0' }}"
+          data-detail-add-cart="1"
           data-quantity-source="[data-food-qty-value]">Add to Cart</button>
       </div>
     </div>

@@ -9,7 +9,18 @@
     <div class="checkout-total-row"><span>Placed</span><strong>{{ $order->created_at?->format('d/m/Y h:i A') }}</strong></div>
     @foreach($order->items as $item)
       <div class="checkout-item">
-        <div class="checkout-item-info"><h4>{{ $item->item_name }}</h4><span>{{ $item->size_label }} × {{ $item->quantity }} @if($item->addons->isNotEmpty()) · {{ $item->addons->pluck('addon_name')->implode(', ') }} @endif</span></div>
+        <div class="checkout-item-info">
+          <h4>{{ $item->item_name }}</h4>
+          <span>{{ $item->size_label }} × {{ $item->quantity }}</span>
+          @if($item->addons->isNotEmpty())
+            <div class="mt-1">
+            @foreach($item->addons as $addon)
+              @php($addonDescription = $addon->description ?: $addon->menuItemPriceAddon?->description ?: $addon->addon?->description)
+              <small class="d-block"><strong>{{ $addon->addon_name }}</strong>@if(filled($addonDescription))<span class="d-block text-muted">{{ $addonDescription }}</span>@endif</small>
+            @endforeach
+            </div>
+          @endif
+        </div>
         <span class="checkout-item-price">TK {{ rtrim(rtrim(number_format((float)$item->line_total,2,'.',''),'0'),'.') }}</span>
       </div>
     @endforeach

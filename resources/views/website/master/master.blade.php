@@ -113,6 +113,36 @@
 
   window.ChomokCart = { refresh: refreshCart, add: addCart };
 
+  function syncVariationAddonGroups(form, priceId) {
+    if (!form) return;
+    form.querySelectorAll('[data-variation-addon-group]').forEach(group => {
+      const active = String(group.dataset.priceId) === String(priceId);
+      group.classList.toggle('d-none', !active);
+      if (!active) group.querySelectorAll('input[name="price_addon_ids[]"]').forEach(input => { input.checked = false; });
+    });
+  }
+
+  function syncFoodVariationPreview(priceInput) {
+    const card = priceInput?.closest('[data-menu-card]');
+    if (!card) return;
+    card.querySelectorAll('[data-food-variation-addon-group]').forEach(group => {
+      const active = String(group.dataset.priceId) === String(priceInput.value);
+      group.classList.toggle('d-none', !active);
+      if (!active) {
+        group.querySelectorAll('input[name="price_addon_ids[]"]').forEach(input => { input.checked = false; });
+      }
+    });
+  }
+
+  document.addEventListener('change', function (event) {
+    if (event.target.matches('#addonSelectionForm input[name="menu_item_price_id"]')) {
+      syncVariationAddonGroups(event.target.closest('#addonSelectionForm'), event.target.value);
+    }
+    if (event.target.matches('input[data-price-for]')) {
+      syncFoodVariationPreview(event.target);
+    }
+  });
+
   document.addEventListener('click', async function (event) {
     const addButton = event.target.closest('[data-add-cart]');
     if (addButton) {
@@ -128,25 +158,37 @@
         Swal.fire({icon:'warning', title:'Select a size', text:'Please choose a price/size first.'});
         return;
       }
-      if (hasAddons) {
-        try {
-          const response = await fetch(addButton.dataset.configureUrl, {headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}, cache:'no-store'});
-          if (!response.ok) throw new Error('Unable to load add-ons.');
-          const data = await response.json();
-          document.getElementById('addonSelectionBody').innerHTML = data.html;
-          const modalPrice = document.querySelector(`#addonSelectionBody input[name="menu_item_price_id"][value="${priceId}"]`);
-          if (modalPrice) modalPrice.checked = true;
-          const modalQtyValue = document.querySelector('#addonSelectionBody [data-modal-qty-value]');
-          const modalQtyInput = document.querySelector('#addonSelectionBody [data-modal-qty-input]');
-          if (modalQtyValue) modalQtyValue.textContent = requestedQuantity;
-          if (modalQtyInput) modalQtyInput.value = requestedQuantity;
-          addonModal?.show();
-        } catch (error) {
-          Swal.fire({icon:'error', title:'Unable to continue', text:error.message});
+      const isDetailAdd = addButton.dataset.detailAddCart === '1';
+
+      if (hasAddons && !isDetailAdd) {
+        const detailUrl = addButton.dataset.detailUrl;
+        if (!detailUrl) {
+          Swal.fire({icon:'error', title:'Unable to continue', text:'Product details URL is unavailable.'});
+          return;
         }
-      } else {
-        try { await addCart({menu_item_id:itemId, menu_item_price_id:priceId, quantity:requestedQuantity, addon_ids:[]}); }
-        catch (error) { Swal.fire({icon:'error', title:'Cart error', text:error.message}); }
+        const detailLocation = new URL(detailUrl, window.location.href);
+        detailLocation.searchParams.set('price_id', String(priceId));
+        window.location.assign(detailLocation.toString());
+        return;
+      }
+
+      const addonIds = isDetailAdd
+        ? Array.from(card.querySelectorAll('input[name="addon_ids[]"]:checked')).map(input => Number(input.value)).filter(Boolean)
+        : [];
+      const priceAddonIds = isDetailAdd
+        ? Array.from(card.querySelectorAll(`[data-food-variation-addon-group][data-price-id="${priceId}"] input[name="price_addon_ids[]"]:checked`)).map(input => Number(input.value)).filter(Boolean)
+        : [];
+
+      try {
+        await addCart({
+          menu_item_id:itemId,
+          menu_item_price_id:priceId,
+          quantity:requestedQuantity,
+          addon_ids:addonIds,
+          price_addon_ids:priceAddonIds
+        });
+      } catch (error) {
+        Swal.fire({icon:'error', title:'Cart error', text:error.message});
       }
       return;
     }
@@ -234,7 +276,8 @@
       menu_item_id: Number(formData.get('menu_item_id')),
       menu_item_price_id: Number(formData.get('menu_item_price_id')),
       quantity: Number(formData.get('quantity') || 1),
-      addon_ids: formData.getAll('addon_ids[]').map(Number)
+      addon_ids: formData.getAll('addon_ids[]').map(Number),
+      price_addon_ids: formData.getAll('price_addon_ids[]').map(Number)
     };
     try { await addCart(payload); }
     catch (error) { Swal.fire({icon:'error', title:'Cart error', text:error.message}); }

@@ -11,7 +11,7 @@ class OrderItemAddon extends Model
     use HasFactory;
 
     protected $fillable = [
-        'order_item_id', 'addon_id', 'addon_name', 'price', 'quantity', 'line_total',
+        'order_item_id', 'addon_id', 'menu_item_price_addon_id', 'addon_name', 'description', 'price', 'quantity', 'line_total',
     ];
 
     protected function casts(): array
@@ -30,5 +30,10 @@ class OrderItemAddon extends Model
     public function addon(): BelongsTo
     {
         return $this->belongsTo(Addon::class);
+    }
+
+    public function menuItemPriceAddon(): BelongsTo
+    {
+        return $this->belongsTo(MenuItemPriceAddon::class);
     }
 }

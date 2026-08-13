@@ -47,7 +47,20 @@
         @foreach($cart as $row)
           <div class="checkout-item">
             @if(!empty($row['image']))<img src="{{ $adminAssetUrl($row['image']) }}" alt="{{ $row['name'] }}" class="checkout-item-img">@endif
-            <div class="checkout-item-info"><h4>{{ $row['name'] }}</h4><span>{{ $row['size_label'] }} &times; {{ $row['quantity'] }} @if(!empty($row['addons'])) · {{ collect($row['addons'])->pluck('name')->implode(', ') }} @endif</span></div>
+            <div class="checkout-item-info">
+              <h4>{{ $row['name'] }}</h4>
+              <span>{{ $row['size_label'] }} &times; {{ $row['quantity'] }}</span>
+              @if(!empty($row['addons']))
+                <div class="mt-1">
+                  @foreach($row['addons'] as $addon)
+                    <small class="d-block">
+                      <strong>{{ $addon['name'] ?? '' }}</strong>
+                      @if(filled($addon['description'] ?? null))<span class="d-block text-muted">{{ $addon['description'] }}</span>@endif
+                    </small>
+                  @endforeach
+                </div>
+              @endif
+            </div>
             <span class="checkout-item-price">TK {{ rtrim(rtrim(number_format((float)$row['line_total'],2,'.',''),'0'),'.') }}</span>
           </div>
         @endforeach

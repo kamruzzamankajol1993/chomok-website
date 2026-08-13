@@ -11,7 +11,7 @@ Registration | Chomok Restaurant
 <section class="auth-section">
   <div class="auth-card">
     <h1 class="auth-title">Create Your Account</h1>
-    <p class="auth-subtext">Sign up to order faster and keep track of your Chomok cravings.</p>
+    <p class="auth-subtext">Sign up to order faster. We will verify your email with a 6-digit code before creating your account.</p>
 
     <form class="auth-form" action="{{ route('client.register.submit') }}" method="post">
       @csrf
@@ -46,7 +46,7 @@ Registration | Chomok Restaurant
         I agree to the <a href="{{ route('extra.terms-and-conditions') }}" class="auth-link">Terms of Service</a> and <a href="{{ route('extra.privacy-policy') }}" class="auth-link">Privacy Policy</a>.
       </label>
 
-      <button type="submit" class="btn-wc-hero auth-submit">Create Account</button>
+      <button type="submit" class="btn-wc-hero auth-submit">Send Verification Code</button>
     </form>
 
     <p class="auth-switch">Already have an account? <a href="{{ route('client.login') }}" class="auth-link">Log in</a></p>

@@ -1,4 +1,4 @@
-<div class="offcanvas-body">
+<div class="offcanvas-body" style="max-height:calc(100vh - 255px);overflow-y:auto;overscroll-behavior:contain;">
   @forelse($cart as $row)
     <div class="cart-item">
       @if(!empty($row['image']))
@@ -10,7 +10,16 @@
         <h6 class="cart-item-name">{{ $row['name'] }}</h6>
         <span class="cart-item-variant">{{ $row['size_label'] }}</span>
         @if(!empty($row['addons']))
-          <small>{{ collect($row['addons'])->pluck('name')->implode(', ') }}</small>
+          <div class="mt-1">
+            @foreach($row['addons'] as $addon)
+              <small class="d-block">
+                <strong>{{ $addon['name'] ?? '' }}</strong>
+                @if(filled($addon['description'] ?? null))
+                  <span class="d-block text-muted">{{ $addon['description'] }}</span>
+                @endif
+              </small>
+            @endforeach
+          </div>
         @endif
         <span class="cart-item-price">TK {{ rtrim(rtrim(number_format((float)$row['line_total'], 2, '.', ''), '0'), '.') }}</span>
       </div>

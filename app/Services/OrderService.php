@@ -129,7 +129,7 @@ class OrderService
 
         foreach ($items as $index => $item) {
             $price = MenuItemPrice::query()
-                ->with(['menuItem.addons'])
+                ->with(['menuItem.addons', 'variationAddons'])
                 ->whereKey($item['menu_item_price_id'])
                 ->where('menu_item_id', $item['menu_item_id'])
                 ->whereHas('menuItem', function ($query) use ($branchId): void {
@@ -146,20 +146,49 @@ class OrderService
 
             $quantity = max((int) ($item['quantity'] ?? 1), 1);
             $selectedAddonIds = collect($item['addon_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+            $selectedPriceAddonIds = collect($item['price_addon_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+
             $availableAddons = $price->menuItem->addons
                 ->where('is_active', true)
                 ->whereIn('id', $selectedAddonIds);
+            $availablePriceAddons = $price->variationAddons->whereIn('id', $selectedPriceAddonIds);
 
             if ($availableAddons->count() !== $selectedAddonIds->count()) {
                 throw ValidationException::withMessages([
-                    "items.{$index}.addon_ids" => 'One or more selected add-ons are unavailable.',
+                    "items.{$index}.addon_ids" => 'One or more selected global add-ons are unavailable.',
+                ]);
+            }
+            if ($availablePriceAddons->count() !== $selectedPriceAddonIds->count()) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.price_addon_ids" => 'One or more selected variation add-ons are unavailable for this price/size.',
                 ]);
             }
 
             $unitPrice = $price->effective_price;
-            $addonTotal = (float) $availableAddons->sum(fn (Addon $addon) => (float) $addon->price);
+            $globalAddonTotal = (float) $availableAddons->sum(fn (Addon $addon) => (float) $addon->price);
+            $variationAddonTotal = (float) $availablePriceAddons->sum(fn ($addon) => (float) $addon->price);
+            $addonTotal = $globalAddonTotal + $variationAddonTotal;
             $lineTotal = round(($unitPrice + $addonTotal) * $quantity, 2);
             $subtotal += $lineTotal;
+
+            $globalAddonRows = $availableAddons->map(fn (Addon $addon) => [
+                'addon_id' => $addon->id,
+                'menu_item_price_addon_id' => null,
+                'addon_name' => $addon->name,
+                'description' => $addon->description,
+                'price' => (float) $addon->price,
+                'quantity' => $quantity,
+                'line_total' => round((float) $addon->price * $quantity, 2),
+            ]);
+            $variationAddonRows = $availablePriceAddons->map(fn ($addon) => [
+                'addon_id' => null,
+                'menu_item_price_addon_id' => $addon->id,
+                'addon_name' => $addon->name,
+                'description' => $addon->description,
+                'price' => (float) $addon->price,
+                'quantity' => $quantity,
+                'line_total' => round((float) $addon->price * $quantity, 2),
+            ]);
 
             $rows[] = [
                 'menu_item_id' => $price->menu_item_id,
@@ -171,13 +200,7 @@ class OrderService
                 'addon_total' => $addonTotal,
                 'line_total' => $lineTotal,
                 'note' => $item['note'] ?? null,
-                'addons' => $availableAddons->map(fn (Addon $addon) => [
-                    'addon_id' => $addon->id,
-                    'addon_name' => $addon->name,
-                    'price' => (float) $addon->price,
-                    'quantity' => $quantity,
-                    'line_total' => round((float) $addon->price * $quantity, 2),
-                ])->values()->all(),
+                'addons' => $globalAddonRows->concat($variationAddonRows)->values()->all(),
             ];
         }
 

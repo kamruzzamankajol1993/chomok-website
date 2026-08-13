@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MenuItemPrice extends Model
 {
@@ -33,5 +34,10 @@ class MenuItemPrice extends Model
     public function menuItem(): BelongsTo
     {
         return $this->belongsTo(MenuItem::class);
+    }
+
+    public function variationAddons(): HasMany
+    {
+        return $this->hasMany(MenuItemPriceAddon::class)->orderBy('sort_order')->orderBy('id');
     }
 }

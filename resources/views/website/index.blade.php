@@ -138,7 +138,7 @@
                   @endforeach
                 </div>
                 <div class="menu-item-actions">
-                  <button type="button" class="btn-add-cart" data-add-cart data-menu-item-id="{{ $item->id }}" data-default-price-id="{{ $firstPrice?->id }}" data-has-addons="{{ $item->addons->isNotEmpty() ? '1' : '0' }}" data-configure-url="{{ route('menu.configuration', $item) }}">Add to Cart</button>
+                  <button type="button" class="btn-add-cart" data-add-cart data-menu-item-id="{{ $item->id }}" data-default-price-id="{{ $firstPrice?->id }}" data-has-addons="{{ ($item->addons->isNotEmpty() || $item->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty())) ? '1' : '0' }}" data-detail-url="{{ route('menu.show', $item) }}">Add to Cart</button>
                 </div>
               </div>
             </div>

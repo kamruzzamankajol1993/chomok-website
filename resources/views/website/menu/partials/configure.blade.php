@@ -2,6 +2,8 @@
   <input type="hidden" name="menu_item_id" value="{{ $menuItem->id }}">
   <h4 class="menu-item-name">{{ $menuItem->name }}</h4>
 
+  @php($hasVariationAddons = $menuItem->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty()))
+
   <div class="food-view-block">
     <h6 class="food-view-label">Price</h6>
     <div class="menu-item-prices">
@@ -12,6 +14,25 @@
         </label>
       @endforeach
     </div>
+
+    @if($hasVariationAddons)
+      @foreach($menuItem->prices as $price)
+        @if($price->variationAddons->isNotEmpty())
+          <div data-variation-addon-group data-price-id="{{ $price->id }}" class="{{ $loop->first ? '' : 'd-none' }}">
+            <h6 class="food-view-label">{{ $price->size_label ?: 'Regular' }} Add-Ons</h6>
+            <div class="addon-list">
+              @foreach($price->variationAddons as $variationAddon)
+                <label class="addon-item">
+                  <span class="addon-item-check"><input type="checkbox" name="price_addon_ids[]" value="{{ $variationAddon->id }}"></span>
+                  <span class="addon-item-name">{{ $variationAddon->name }}@if(filled($variationAddon->description))<small class="d-block text-muted">{{ $variationAddon->description }}</small>@endif</span>
+                  <span class="addon-item-price">+TK {{ rtrim(rtrim(number_format((float)$variationAddon->price, 2, '.', ''), '0'), '.') }}</span>
+                </label>
+              @endforeach
+            </div>
+          </div>
+        @endif
+      @endforeach
+    @endif
   </div>
 
   @if($menuItem->addons->isNotEmpty())
@@ -21,7 +42,7 @@
         @foreach($menuItem->addons as $addon)
           <label class="addon-item">
             <span class="addon-item-check"><input type="checkbox" name="addon_ids[]" value="{{ $addon->id }}"></span>
-            <span class="addon-item-name">{{ $addon->name }}</span>
+            <span class="addon-item-name">{{ $addon->name }}@if(filled($addon->description))<small class="d-block text-muted">{{ $addon->description }}</small>@endif</span>
             <span class="addon-item-price">+TK {{ rtrim(rtrim(number_format((float)$addon->price, 2, '.', ''), '0'), '.') }}</span>
           </label>
         @endforeach
