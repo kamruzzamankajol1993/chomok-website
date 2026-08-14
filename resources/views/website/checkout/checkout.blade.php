@@ -53,9 +53,9 @@
               @if(!empty($row['addons']))
                 <div class="mt-1">
                   @foreach($row['addons'] as $addon)
-                    <small class="d-block">
-                      <strong>{{ $addon['name'] ?? '' }}</strong>
-                      @if(filled($addon['description'] ?? null))<span class="d-block text-muted">{{ $addon['description'] }}</span>@endif
+                    <small class="d-block" style="line-height:1.45;overflow-wrap:anywhere;">
+                      {{ $addon['name'] ?? '' }}@if(filled($addon['description'] ?? null))/{{ $addon['description'] }}@endif
+                      - TK {{ rtrim(rtrim(number_format((float)($addon['price'] ?? 0),2,'.',''),'0'),'.') }}
                     </small>
                   @endforeach
                 </div>

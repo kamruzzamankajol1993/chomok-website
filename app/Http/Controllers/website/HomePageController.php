@@ -22,17 +22,36 @@ class HomePageController extends Controller
             ->orderBy('banner_slot')
             ->get();
 
+        $loadActiveMenuItems = static function ($query): void {
+            $query->where('is_active', true)
+                ->with([
+                    'prices.variationAddons',
+                    'mainImage',
+                    'addons' => fn ($q) => $q->where('is_active', true),
+                ])
+                ->orderBy('id', 'asc');
+        };
+
         $categories = Category::query()
             ->where('is_active', true)
-            ->with(['menuItems' => function ($query): void {
-                $query->where('is_active', true)
-                    ->with(['prices.variationAddons', 'mainImage', 'addons' => fn ($q) => $q->where('is_active', true)])
-                    //->orderBy('name', 'asc')
-                    ->orderBy('id', 'asc');
-            }])
+            ->with([
+                // Home menu follows the design hierarchy:
+                // Category -> Subcategory -> all active food items.
+                'subcategories' => function ($query) use ($loadActiveMenuItems): void {
+                    $query->where('is_active', true)
+                        ->whereHas('menuItems', fn ($itemQuery) => $itemQuery->where('is_active', true))
+                        ->with(['menuItems' => $loadActiveMenuItems])
+                        ->orderBy('id', 'asc');
+                },
+                // Keep active items without a subcategory visible as a direct category grid.
+                'menuItems' => function ($query) use ($loadActiveMenuItems): void {
+                    $query->whereNull('subcategory_id');
+                    $loadActiveMenuItems($query);
+                },
+            ])
             ->orderBy('id', 'asc')
             ->get()
-            ->filter(fn (Category $category) => $category->menuItems->isNotEmpty())
+            ->filter(fn (Category $category) => $category->menuItems->isNotEmpty() || $category->subcategories->isNotEmpty())
             ->values();
 
         return view('website.index', compact('slides', 'content', 'promoCards', 'categories'));

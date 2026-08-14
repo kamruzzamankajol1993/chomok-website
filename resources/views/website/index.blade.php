@@ -117,33 +117,58 @@
     ];
   @endphp
   @foreach($categories as $category)
+    @php
+      // Match the design hierarchy: category first, then numbered subcategory groups.
+      // Items without a subcategory remain directly under their category.
+      $menuGroups = $category->subcategories
+        ->values()
+        ->map(fn ($subcategory, $index) => [
+          'title' => ($index + 1).'. '.$subcategory->name,
+          'items' => $subcategory->menuItems,
+        ]);
+
+      if ($category->menuItems->isNotEmpty()) {
+        $menuGroups->push([
+          'title' => null,
+          'items' => $category->menuItems,
+        ]);
+      }
+    @endphp
+
     <div class="menu-category menu-cat-{{ $menuClassMap[$category->slug] ?? $category->slug }}">
       <div class="menu-category-inner">
         <h3 class="menu-cat-title">{{ $category->name }} Menu</h3>
-        <div class="menu-grid">
-          @foreach($category->menuItems->take(4) as $item)
-            @php($firstPrice = $item->prices->first())
-            <div class="menu-item" data-menu-card>
-              <a href="{{ route('menu.show', $item) }}" class="menu-item-photo">
-                <img src="{{ $item->mainImage?->image ? $adminAssetUrl($item->mainImage->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt="{{ $item->name }}" class="menu-item-img">
-              </a>
-              <div class="menu-item-banner">
-                <h5 class="menu-item-name">{{ $item->name }}</h5>
-                <div class="menu-item-prices">
-                  @foreach($item->prices as $price)
-                    <label class="price-pill">
-                      <input type="radio" name="home_price_{{ $item->id }}" value="{{ $price->id }}" data-price-for="{{ $item->id }}" class="price-pill-input" @checked($loop->first)>
-                      <em>{{ $price->size_label ?: 'Regular' }}</em>TK {{ rtrim(rtrim(number_format((float)$price->effective_price, 2, '.', ''), '0'), '.') }}
-                    </label>
-                  @endforeach
-                </div>
-                <div class="menu-item-actions">
-                  <button type="button" class="btn-add-cart" data-add-cart data-menu-item-id="{{ $item->id }}" data-default-price-id="{{ $firstPrice?->id }}" data-has-addons="{{ ($item->addons->isNotEmpty() || $item->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty())) ? '1' : '0' }}" data-detail-url="{{ route('menu.show', $item) }}">Add to Cart</button>
+
+        @foreach($menuGroups as $group)
+          @if($group['title'])
+            <h4 class="menu-subtitle">{{ $group['title'] }}</h4>
+          @endif
+
+          <div class="menu-grid">
+            @foreach($group['items'] as $item)
+              @php($firstPrice = $item->prices->first())
+              <div class="menu-item" data-menu-card>
+                <a href="{{ route('menu.show', $item) }}" class="menu-item-photo">
+                  <img src="{{ $item->mainImage?->image ? $adminAssetUrl($item->mainImage->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt="{{ $item->name }}" class="menu-item-img">
+                </a>
+                <div class="menu-item-banner">
+                  <h5 class="menu-item-name">{{ $item->name }}</h5>
+                  <div class="menu-item-prices">
+                    @foreach($item->prices as $price)
+                      <label class="price-pill">
+                        <input type="radio" name="home_price_{{ $item->id }}" value="{{ $price->id }}" data-price-for="{{ $item->id }}" class="price-pill-input" @checked($loop->first)>
+                        <em>{{ $price->size_label ?: 'Regular' }}</em>TK {{ rtrim(rtrim(number_format((float)$price->effective_price, 2, '.', ''), '0'), '.') }}
+                      </label>
+                    @endforeach
+                  </div>
+                  <div class="menu-item-actions">
+                    <button type="button" class="btn-add-cart" data-add-cart data-menu-item-id="{{ $item->id }}" data-default-price-id="{{ $firstPrice?->id }}" data-has-addons="{{ ($item->addons->isNotEmpty() || $item->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty())) ? '1' : '0' }}" data-detail-url="{{ route('menu.show', $item) }}">Add to Cart</button>
+                  </div>
                 </div>
               </div>
-            </div>
-          @endforeach
-        </div>
+            @endforeach
+          </div>
+        @endforeach
       </div>
     </div>
   @endforeach

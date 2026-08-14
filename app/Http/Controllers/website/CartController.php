@@ -8,6 +8,7 @@ use App\Models\MenuItemPrice;
 use App\Models\MenuItemPriceAddon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class CartController extends Controller
@@ -144,10 +145,18 @@ class CartController extends Controller
             ->flatMap(fn ($row) => collect($row['addons'] ?? [])->where('source', 'variation')->pluck('price_addon_id'))
             ->filter()->map(fn ($id) => (int) $id)->unique()->values();
 
-        $globalDescriptions = $globalIds->isEmpty()
+        // The original global `addons` table has no description column.
+        // Only query description when the deployed schema actually has it; otherwise
+        // keep the cart snapshot value (normally null) and avoid a SQL 500 error.
+        $globalDescriptions = $globalIds->isEmpty() || ! Schema::hasColumn('addons', 'description')
             ? collect()
             : Addon::query()->withTrashed()->whereIn('id', $globalIds)->pluck('description', 'id');
+
+        // Older deployments may also have the variation-addon table before the
+        // description column migration. Keep add-to-cart backward compatible.
         $variationDescriptions = $variationIds->isEmpty()
+            || ! Schema::hasTable('menu_item_price_addons')
+            || ! Schema::hasColumn('menu_item_price_addons', 'description')
             ? collect()
             : MenuItemPriceAddon::query()->whereIn('id', $variationIds)->pluck('description', 'id');
 
