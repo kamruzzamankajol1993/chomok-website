@@ -42,7 +42,7 @@ class ContactPageContent extends Model
             'email_address' => 'hello@chomok.com',
             'hours_icon' => '🕐',
             'hours_heading' => 'Opening Hours',
-            'opening_hours' => 'Monday to Saturday, 10am – 7pm',
+            'opening_hours' => 'Saturday to Thursday: 12PM to 10:30PM (Friday 2PM to 10:30PM)',
             'form_heading' => 'Send Us A Message',
             'name_label' => 'Full Name',
             'name_placeholder' => 'Your name',

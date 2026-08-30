@@ -27,13 +27,7 @@
     <div class="container-fluid">
       <div class="row gx-0">
         <div class="col-lg-6 top-bar-item top-bar-left">
-          <span>
-            @if($siteSetting?->opening_time && $siteSetting?->closing_time)
-              Open {{ \Carbon\Carbon::createFromFormat('H:i:s', $siteSetting->opening_time)->format('g:i A') }} to {{ \Carbon\Carbon::createFromFormat('H:i:s', $siteSetting->closing_time)->format('g:i A') }}
-            @else
-              Fresh food, prepared with care
-            @endif
-          </span>
+          <span>{{ $siteSetting?->header_hours_text ?: 'Opening & Closing time (Saturday to Thursday) : 12PM to 10:30PM (Friday 2PM to 10:30PM)' }}</span>
         </div>
         <div class="col-lg-6 top-bar-item top-bar-right">
           <span>Our Location: {{ \Illuminate\Support\Str::limit($siteSetting?->address ?? 'Chattogram, Bangladesh', 70) }}</span>

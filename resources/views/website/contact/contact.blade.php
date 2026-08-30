@@ -13,7 +13,7 @@
       <div class="contact-info-item"><span class="contact-info-icon">{{ $content->address_icon ?: '📍' }}</span><div><h4>{{ $content->address_heading ?: 'Our Address' }}</h4><p>{{ $content->address }}</p></div></div>
       <div class="contact-info-item"><span class="contact-info-icon">{{ $content->phone_icon ?: '📞' }}</span><div><h4>{{ $content->phone_heading ?: 'Call Us' }}</h4><p>{{ $content->phone_number }}</p></div></div>
       <div class="contact-info-item"><span class="contact-info-icon">{{ $content->email_icon ?: '✉️' }}</span><div><h4>{{ $content->email_heading ?: 'Email Us' }}</h4><p>{{ $content->email_address }}</p></div></div>
-      <div class="contact-info-item"><span class="contact-info-icon">{{ $content->hours_icon ?: '🕐' }}</span><div><h4>{{ $content->hours_heading ?: 'Opening Hours' }}</h4><p>{{ $content->opening_hours }}</p></div></div>
+      <div class="contact-info-item"><span class="contact-info-icon">{{ $content->hours_icon ?: '🕐' }}</span><div><h4>{{ $content->hours_heading ?: 'Opening Hours' }}</h4><p>{{ $content->opening_hours ?: 'Saturday to Thursday: 12PM to 10:30PM (Friday 2PM to 10:30PM)' }}</p></div></div>
     </div>
     <div class="contact-form-wrap">
       <h2 class="contact-form-title">{{ $content->form_heading ?: 'Send Us A Message' }}</h2>

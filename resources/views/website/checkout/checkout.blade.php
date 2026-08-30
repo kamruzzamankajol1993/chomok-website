@@ -10,13 +10,17 @@
       <div class="checkout-form-wrap">
         <h2 class="contact-form-title">Delivery Details</h2>
         <div class="form-row">
-          <div class="form-group"><label for="checkout-name">Full Name</label><input type="text" id="checkout-name" name="name" value="{{ old('name',$client->name) }}" placeholder="Your name" required></div>
-          <div class="form-group"><label for="checkout-phone">Phone Number</label><input type="tel" id="checkout-phone" name="phone" value="{{ old('phone',$client->phone) }}" placeholder="+880 XXX-XXXXXX" required></div>
+          <div class="form-group"><label for="checkout-name">Full Name</label><input type="text" id="checkout-name" name="name" value="{{ old('name', $client->name) }}" placeholder="Your name" required></div>
+          <div class="form-group"><label for="checkout-phone">Phone Number</label><input type="tel" id="checkout-phone" name="phone" value="{{ old('phone', $client->phone) }}" placeholder="+880 XXX-XXXXXX" required></div>
         </div>
-        <div class="form-group"><label for="checkout-address">Delivery Address</label><input type="text" id="checkout-address" name="address" value="{{ old('address',$client->address) }}" placeholder="House, Road, Area" required></div>
+        <div class="form-group">
+          <label for="checkout-email">Email Address</label>
+          <input type="email" id="checkout-email" value="{{ $client->email }}" readonly aria-readonly="true">
+        </div>
+        <div class="form-group"><label for="checkout-address">Delivery Address</label><input type="text" id="checkout-address" name="address" value="{{ old('address', $client->address) }}" placeholder="House, Road, Area" required></div>
         <div class="form-row">
-          <div class="form-group"><label for="checkout-city">City</label><input type="text" id="checkout-city" name="city" value="{{ old('city') }}" placeholder="Chittagong"></div>
-          <div class="form-group"><label for="checkout-postcode">Postal Code</label><input type="text" id="checkout-postcode" name="postcode" value="{{ old('postcode') }}" placeholder="4000"></div>
+          <div class="form-group"><label for="checkout-city">City</label><input type="text" id="checkout-city" name="city" value="{{ old('city', $client->delivery_city) }}" placeholder="Chittagong"></div>
+          <div class="form-group"><label for="checkout-postcode">Postal Code</label><input type="text" id="checkout-postcode" name="postcode" value="{{ old('postcode', $client->delivery_postcode) }}" placeholder="4000"></div>
         </div>
         <div class="form-group">
           <label for="checkout-branch">Select Branch <span aria-hidden="true">*</span></label>

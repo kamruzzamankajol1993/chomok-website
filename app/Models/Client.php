@@ -15,7 +15,7 @@ class Client extends Authenticatable
 
     protected $fillable = [
         'branch_id', 'created_by', 'code', 'name', 'email', 'phone', 'address',
-        'notes', 'can_login', 'password', 'status',
+        'delivery_city', 'delivery_postcode', 'notes', 'can_login', 'password', 'status',
     ];
 
     protected $hidden = ['password'];

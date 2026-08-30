@@ -301,11 +301,30 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('clients', 'email')->ignore($client->id)->whereNull('deleted_at')],
             'phone' => ['required', 'string', 'max:50'],
-            'address' => ['nullable', 'string', 'max:2000'],
         ]);
         $client->update($data);
 
-        return back()->with('success', 'Account information updated.');
+        return redirect()->route('client.dashboard', ['tab' => 'account'])->with('success', 'Account information updated.');
+    }
+
+    public function updateDeliveryAddress(Request $request): RedirectResponse
+    {
+        /** @var Client $client */
+        $client = Auth::guard('client')->user();
+        $data = $request->validate([
+            'address' => ['required', 'string', 'max:2000'],
+            'delivery_city' => ['nullable', 'string', 'max:255'],
+            'delivery_postcode' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $client->update([
+            'address' => trim($data['address']),
+            'delivery_city' => filled($data['delivery_city'] ?? null) ? trim($data['delivery_city']) : null,
+            'delivery_postcode' => filled($data['delivery_postcode'] ?? null) ? trim($data['delivery_postcode']) : null,
+        ]);
+
+        return redirect()->route('client.dashboard', ['tab' => 'delivery-address'])
+            ->with('success', 'Delivery address saved successfully.');
     }
 
     public function logout(Request $request): RedirectResponse

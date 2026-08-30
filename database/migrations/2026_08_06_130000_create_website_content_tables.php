@@ -170,7 +170,7 @@ return new class extends Migration
             'hero_eyebrow_text' => "We'd Love To Hear From You", 'hero_title' => 'Contact Us',
             'address_icon' => '📍', 'address' => '394 Brothers Mansion, East Rampur, Halishahar, Chittagong.',
             'phone_icon' => '📞', 'phone_number' => '+880 XXX-XXXXXX', 'email_icon' => '✉️', 'email_address' => 'hello@chomok.com',
-            'hours_icon' => '🕐', 'opening_hours' => 'Monday to Saturday, 10am – 7pm', 'form_heading' => 'Send Us A Message', 'submit_button_text' => 'Send Message',
+            'hours_icon' => '🕐', 'opening_hours' => 'Saturday to Thursday: 12PM to 10:30PM (Friday 2PM to 10:30PM)', 'form_heading' => 'Send Us A Message', 'submit_button_text' => 'Send Message',
             'notify_admin_by_email' => false, 'map_address' => '394 Brothers Mansion, East Rampur, Halishahar, Chittagong, Bangladesh', 'map_embed_url' => 'https://www.google.com/maps?q=394%20Brothers%20Mansion&output=embed',
             'created_at' => $now, 'updated_at' => $now,
         ]);

@@ -30,6 +30,9 @@
         <li>
           <button type="button" class="dashboard-nav-link" id="account-tab" data-bs-toggle="pill" data-bs-target="#account-pane" role="tab" aria-controls="account-pane" aria-selected="false">Account Information</button>
         </li>
+        <li>
+          <button type="button" class="dashboard-nav-link" id="delivery-address-tab" data-bs-toggle="pill" data-bs-target="#delivery-address-pane" role="tab" aria-controls="delivery-address-pane" aria-selected="false">Delivery Address</button>
+        </li>
       </ul>
 
       <a href="{{ route('logout') }}" class="btn-logout" onclick="event.preventDefault(); document.getElementById('clientLogoutForm').submit();">Logout</a>
@@ -145,11 +148,32 @@
               <div class="form-group"><label for="account-name">Full Name</label><input type="text" id="account-name" name="name" value="{{ old('name', $client->name) }}" required></div>
               <div class="form-group"><label for="account-email">Email Address</label><input type="email" id="account-email" name="email" value="{{ old('email', $client->email) }}" required></div>
             </div>
-            <div class="form-row">
-              <div class="form-group"><label for="account-phone">Phone Number</label><input type="tel" id="account-phone" name="phone" value="{{ old('phone', $client->phone) }}" required></div>
-              <div class="form-group"><label for="account-address">Delivery Address</label><input type="text" id="account-address" name="address" value="{{ old('address', $client->address) }}"></div>
-            </div>
+            <div class="form-group"><label for="account-phone">Phone Number</label><input type="tel" id="account-phone" name="phone" value="{{ old('phone', $client->phone) }}" required></div>
             <button type="submit" class="btn-wc-hero">Save Changes</button>
+          </form>
+        </div>
+
+        <!-- Delivery Address -->
+        <div class="tab-pane fade" id="delivery-address-pane" role="tabpanel" aria-labelledby="delivery-address-tab">
+          <h2 class="dashboard-section-title">Delivery Address</h2>
+          <p class="form-help" style="margin:0 0 1rem;">You can keep one delivery address. Saving again will update the same address.</p>
+          <form class="contact-form dashboard-account-form" action="{{ route('client.delivery-address.update') }}" method="post">
+            @csrf
+            <div class="form-group">
+              <label for="delivery-address">Delivery Address</label>
+              <input type="text" id="delivery-address" name="address" value="{{ old('address', $client->address) }}" placeholder="House, Road, Area" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="delivery-city">City</label>
+                <input type="text" id="delivery-city" name="delivery_city" value="{{ old('delivery_city', $client->delivery_city) }}" placeholder="Chittagong">
+              </div>
+              <div class="form-group">
+                <label for="delivery-postcode">Postal Code</label>
+                <input type="text" id="delivery-postcode" name="delivery_postcode" value="{{ old('delivery_postcode', $client->delivery_postcode) }}" placeholder="4000">
+              </div>
+            </div>
+            <button type="submit" class="btn-wc-hero">{{ filled($client->address) ? 'Update Delivery Address' : 'Add Delivery Address' }}</button>
           </form>
         </div>
 
@@ -179,6 +203,25 @@
 document.getElementById('viewAllOrdersBtn')?.addEventListener('click', function () {
   document.getElementById('orders-tab')?.click();
 });
+
+(function () {
+  const requestedTab = new URLSearchParams(window.location.search).get('tab');
+  const tabMap = {
+    'overview': 'overview-tab',
+    'orders': 'orders-tab',
+    'account': 'account-tab',
+    'delivery-address': 'delivery-address-tab'
+  };
+  const tabId = tabMap[requestedTab];
+  if (tabId) {
+    const tabButton = document.getElementById(tabId);
+    if (tabButton && window.bootstrap?.Tab) {
+      bootstrap.Tab.getOrCreateInstance(tabButton).show();
+    } else {
+      tabButton?.click();
+    }
+  }
+})();
 
 (function () {
   const modalEl = document.getElementById('orderDetailsModal');

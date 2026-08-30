@@ -63,6 +63,7 @@ Route::middleware('auth:client')->group(function () {
     Route::get('/client/dashboard', [AuthController::class, 'dashboard'])->name('client.dashboard');
     Route::get('/client/view-order/{id}', [AuthController::class, 'viewOrder'])->whereNumber('id')->name('client.view-order');
     Route::post('/client/update-profile', [AuthController::class, 'updateProfile'])->name('client.update-profile');
+    Route::post('/client/delivery-address', [AuthController::class, 'updateDeliveryAddress'])->name('client.delivery-address.update');
     Route::get('/client/session-status', [AuthController::class, 'sessionStatus'])->name('client.session-status');
 
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
