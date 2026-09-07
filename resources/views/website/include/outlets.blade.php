@@ -8,9 +8,19 @@
 
   <div class="outlets-grid">
     @forelse($siteBranches as $branch)
+      @php
+        $mapIframe = trim((string) $branch->map_iframe);
+        $hasDirectIframe = $mapIframe !== '' && preg_match('~<iframe\\b[^>]*>.*?</iframe>~is', $mapIframe);
+        $mapUrl = (!$hasDirectIframe && filter_var($mapIframe, FILTER_VALIDATE_URL)) ? $mapIframe : null;
+        $fallbackMapSrc = $mapUrl ?: 'https://www.google.com/maps?q='.urlencode($branch->address).'&output=embed';
+      @endphp
       <div class="outlet-card">
         <div class="outlet-map">
-          <iframe src="https://www.google.com/maps?q={{ urlencode($branch->address) }}&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="{{ $branch->name }} location"></iframe>
+          @if($hasDirectIframe)
+            {!! $mapIframe !!}
+          @else
+            <iframe src="{{ $fallbackMapSrc }}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen title="{{ $branch->name }} location"></iframe>
+          @endif
         </div>
         <div class="outlet-info">
           <h3 class="outlet-name">{{ $branch->name }}</h3>

@@ -38,48 +38,31 @@ class CheckoutController extends Controller
         }
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:50'],
             'address' => ['required', 'string', 'max:2000'],
-            'city' => ['nullable', 'string', 'max:255'],
-            'postcode' => ['nullable', 'string', 'max:50'],
             'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($q) => $q->where('status', 'active')->where('accepting_orders', 1)->whereNull('deleted_at'))],
-            'notes' => ['nullable', 'string', 'max:3000'],
-            'payment' => ['required', Rule::in(['cod', 'bkash', 'nagad', 'card'])],
-            'payment_reference' => [
-                Rule::requiredIf(fn () => in_array($request->input('payment'), ['bkash', 'nagad', 'card'], true)),
-                'nullable',
-                'string',
-                'max:255',
-            ],
-        ], [
-            'payment_reference.required' => 'Reference number is required for bKash, Nagad, or Card payments.',
         ]);
 
         $client = Auth::guard('client')->user();
-        $paymentType = match ($data['payment']) {
-            'bkash', 'nagad' => 'mfs',
-            'card' => 'bank',
-            default => 'cash_on_delivery',
-        };
+        $paymentType = 'cash_on_delivery';
 
         $payload = [
             'branch_id' => (int) $data['branch_id'],
             'client_id' => $client->id,
-            'customer_name' => $data['name'],
-            'customer_phone' => $data['phone'],
+            'customer_name' => $client->name,
+            'customer_phone' => trim($data['phone']),
             'customer_email' => $client->email,
             'customer_address' => $data['address'],
             'order_type' => 'delivery',
-            'delivery_address' => trim($data['address'].($data['city'] ? ', '.$data['city'] : '').($data['postcode'] ? ' - '.$data['postcode'] : '')),
+            'delivery_address' => trim($data['address']),
             'delivery_charge' => self::DELIVERY_FEE,
             'discount_type' => 'fixed',
             'discount_value' => 0,
             'payment_type' => $paymentType,
-            'payment_reference' => $paymentType === 'cash_on_delivery' ? null : trim($data['payment_reference']),
+            'payment_reference' => null,
             'paid_amount' => 0,
             'status' => 'pending',
-            'note' => $data['notes'] ?? null,
+            'note' => null,
             'items' => collect($cart)->map(fn ($row) => [
                 'menu_item_id' => (int) $row['menu_item_id'],
                 'menu_item_price_id' => (int) $row['menu_item_price_id'],

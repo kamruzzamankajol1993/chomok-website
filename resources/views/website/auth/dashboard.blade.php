@@ -13,7 +13,17 @@
 <section class="dashboard-section">
   <div class="dashboard-layout">
 
-    <aside class="dashboard-sidebar">
+    <aside class="dashboard-sidebar offcanvas-lg offcanvas-start dashboard-mobile-offcanvas" tabindex="-1" id="dashboardNavOffcanvas" aria-labelledby="dashboardNavOffcanvasLabel">
+      <div class="offcanvas-header dashboard-offcanvas-header d-lg-none">
+        <a href="{{ route('home.index') }}" class="dashboard-offcanvas-logo" id="dashboardNavOffcanvasLabel">
+          @if($siteSetting?->logo)
+            <img src="{{ $adminAssetUrl($siteSetting->logo) }}" alt="{{ $siteSetting->restaurant_name ?? 'Chomok Restaurant' }}">
+          @else
+            <img src="{{ asset('public/website/assets/images/chomok-logo-white.png') }}" alt="Chomok Restaurant">
+          @endif
+        </a>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#dashboardNavOffcanvas" aria-label="Close dashboard menu"></button>
+      </div>
       <div class="dashboard-user">
         <div class="dashboard-avatar" aria-hidden="true">{{ strtoupper(mb_substr($client->name, 0, 1)) }}</div>
         <h3 class="dashboard-username">{{ $client->name }}</h3>
@@ -40,6 +50,10 @@
     </aside>
 
     <div class="dashboard-content">
+      <button type="button" class="dashboard-mobile-menu-btn d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#dashboardNavOffcanvas" aria-controls="dashboardNavOffcanvas">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
+        Dashboard Menu
+      </button>
       <div class="tab-content">
 
         <!-- Overview -->
@@ -74,19 +88,21 @@
                   <tr>
                     <td>{{ $order->order_number }}</td>
                     <td>{{ $order->created_at?->format('d M Y') }}</td>
-                    <td>
-                      @foreach($order->items->take(2) as $item)
-                        <div class="mb-1">
-                          <strong>{{ $item->item_name }}</strong>
-                          @if($item->addons->isNotEmpty())
-                            @foreach($item->addons as $addon)
-                              @php($addonDescription = $addon->description ?: $addon->menuItemPriceAddon?->description ?: $addon->addon?->description)
-                              <small class="d-block">+ {{ $addon->addon_name }}@if(filled($addonDescription)) — <span class="text-muted">{{ $addonDescription }}</span>@endif</small>
-                            @endforeach
-                          @endif
-                        </div>
-                      @endforeach
-                      @if($order->items->count() > 2)<small>+{{ $order->items->count() - 2 }} more item(s)</small>@endif
+                    <td class="recent-order-items-cell">
+                      <div class="recent-order-items-list">
+                        @foreach($order->items->take(2) as $item)
+                          <div class="mb-1 recent-order-item">
+                            <strong>{{ $item->item_name }}</strong>
+                            @if($item->addons->isNotEmpty())
+                              @foreach($item->addons as $addon)
+                                @php($addonDescription = $addon->description ?: $addon->menuItemPriceAddon?->description ?: $addon->addon?->description)
+                                <small class="d-block">+ {{ $addon->addon_name }}@if(filled($addonDescription)) — <span class="text-muted">{{ $addonDescription }}</span>@endif</small>
+                              @endforeach
+                            @endif
+                          </div>
+                        @endforeach
+                        @if($order->items->count() > 2)<small>+{{ $order->items->count() - 2 }} more item(s)</small>@endif
+                      </div>
                     </td>
                     <td>TK {{ number_format((float)$order->grand_total, 0) }}</td>
                     <td><span class="order-status {{ $statusClass($order->status) }}">{{ ucfirst($order->status) }}</span></td>
@@ -202,6 +218,16 @@
 <script>
 document.getElementById('viewAllOrdersBtn')?.addEventListener('click', function () {
   document.getElementById('orders-tab')?.click();
+});
+
+
+document.querySelectorAll('#dashboardNavOffcanvas .dashboard-nav-link').forEach(function (button) {
+  button.addEventListener('click', function () {
+    if (window.innerWidth >= 992) return;
+    const nav = document.getElementById('dashboardNavOffcanvas');
+    const instance = nav && window.bootstrap?.Offcanvas ? bootstrap.Offcanvas.getInstance(nav) : null;
+    instance?.hide();
+  });
 });
 
 (function () {

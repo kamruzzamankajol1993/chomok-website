@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Branch;
+use App\Models\Category;
 use App\Models\HomepageContent;
 use App\Models\Setting;
 use Illuminate\Support\Facades\View;
@@ -21,11 +22,13 @@ class AppServiceProvider extends ServiceProvider
         $setting = null;
         $homepageContent = null;
         $siteBranches = collect();
+        $siteCategories = collect();
 
         try {
             $setting = Setting::query()->first();
             $homepageContent = HomepageContent::query()->first();
             $siteBranches = Branch::query()->where('status', 'active')->orderBy('name')->get();
+            $siteCategories = Category::query()->where('is_active', true)->orderBy('id')->get();
         } catch (Throwable) {
             // Keep artisan/install commands usable before the shared DB is available.
         }
@@ -83,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
             'siteLinkUrl' => $siteLinkUrl,
             'siteSeoDescription' => trim((string) ($homepageContent?->about_paragraph_text ?: 'Chomok Restaurant - fresh food, online ordering and delivery.')),
             'siteBranches' => $siteBranches,
+            'siteCategories' => $siteCategories,
             'globalHomepageContent' => $homepageContent,
         ]);
 

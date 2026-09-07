@@ -14,7 +14,7 @@ class Branch extends Model
 
     protected $fillable = [
         'name', 'code', 'address', 'city', 'phone', 'email',
-        'image', 'google_map_link', 'accepting_orders', 'status',
+        'image', 'google_map_link', 'map_iframe', 'accepting_orders', 'status',
     ];
 
     protected function casts(): array

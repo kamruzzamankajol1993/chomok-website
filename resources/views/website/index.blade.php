@@ -36,15 +36,18 @@
 
 <!-- Category Scroller -->
 <section class="category-scroller">
-  @php
-    $categoryEmojis = ['pizza'=>'🍕','burgers'=>'🍔','fried-chicken'=>'🍗','rice-biryani'=>'🍛','pasta-noodles'=>'🍝','sandwiches'=>'🥪','salads'=>'🥗','desserts'=>'🍰','beverages'=>'🥤','combos'=>'🍽️'];
-  @endphp
   <div class="scroller-track">
     @foreach($categories as $category)
-      <a href="{{ route('menu.index', ['category' => $category->slug]) }}" class="scroller-item"><span class="scroller-emoji">{{ $categoryEmojis[$category->slug] ?? '🍴' }}</span> {{ $category->name }}</a>
+      <a href="{{ route('menu.index', ['category' => $category->slug]) }}" class="scroller-item">
+        <span class="scroller-category-image"><img src="{{ $category->image ? $adminAssetUrl($category->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt="{{ $category->name }}"></span>
+        <span>{{ $category->name }}</span>
+      </a>
     @endforeach
     @foreach($categories as $category)
-      <a href="{{ route('menu.index', ['category' => $category->slug]) }}" class="scroller-item" aria-hidden="true"><span class="scroller-emoji">{{ $categoryEmojis[$category->slug] ?? '🍴' }}</span> {{ $category->name }}</a>
+      <a href="{{ route('menu.index', ['category' => $category->slug]) }}" class="scroller-item" aria-hidden="true" tabindex="-1">
+        <span class="scroller-category-image"><img src="{{ $category->image ? $adminAssetUrl($category->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt=""></span>
+        <span>{{ $category->name }}</span>
+      </a>
     @endforeach
   </div>
 </section>

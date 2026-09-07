@@ -25,7 +25,7 @@
 
       <div class="food-view-block">
         <h6 class="food-view-label">Price</h6>
-        <div class="menu-item-prices">
+        <div class="menu-item-prices mb-3">
           @foreach($menuItem->prices as $price)
             <label class="price-pill">
               <input type="radio" name="view-size" value="{{ $price->id }}" data-price-for="{{ $menuItem->id }}" class="price-pill-input" @checked((int) $selectedPriceId === (int) $price->id)>

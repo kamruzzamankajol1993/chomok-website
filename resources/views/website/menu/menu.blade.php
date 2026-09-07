@@ -15,18 +15,6 @@
       </ul>
     </aside>
 
-    <div class="offcanvas offcanvas-end category-offcanvas" tabindex="-1" id="categoryOffcanvas" aria-labelledby="categoryOffcanvasLabel">
-      <div class="offcanvas-header"><h5 class="offcanvas-title" id="categoryOffcanvasLabel">Categories</h5><button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
-      <div class="offcanvas-body">
-        <ul class="menu-category-list category-offcanvas-list">
-          <li><button type="button" class="menu-cat-btn {{ $category === 'all' ? 'active' : '' }}" data-menu-filter="all">All</button></li>
-          @foreach($categories as $cat)
-            <li><button type="button" class="menu-cat-btn {{ $category === $cat->slug ? 'active' : '' }}" data-menu-filter="{{ $cat->slug }}">{{ $cat->name }}</button></li>
-          @endforeach
-        </ul>
-      </div>
-    </div>
-
     <div class="menu-page-content">
       <div class="menu-grid-2" id="ajaxMenuGrid">
         @include('website.menu.partials.cards', ['items' => $items])

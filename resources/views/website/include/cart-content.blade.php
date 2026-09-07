@@ -7,6 +7,12 @@
 <div style="height:calc(100vh - 72px);display:flex;flex-direction:column;min-height:0;">
   <div class="offcanvas-body" style="flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:1rem;">
     @forelse($cart as $row)
+      @php
+        $unitPrice = (float) ($row['unit_price'] ?? 0);
+        $addonTotal = (float) ($row['addon_total'] ?? collect($row['addons'] ?? [])->sum(fn ($addon) => (float) ($addon['price'] ?? 0)));
+        $combinedUnitPrice = $unitPrice + $addonTotal;
+        $quantity = max(1, (int) ($row['quantity'] ?? 1));
+      @endphp
       <div class="cart-item" style="align-items:flex-start;">
         @if(!empty($row['image']))
           <img src="{{ $adminAssetUrl($row['image']) }}" alt="{{ $row['name'] }}" class="cart-item-img">
@@ -17,26 +23,27 @@
         <div class="cart-item-info" style="min-width:0;flex:1;">
           <h6 class="cart-item-name mb-1">{{ $row['name'] }}</h6>
 
-          @if(filled($row['size_label'] ?? null))
-            <span class="cart-item-variant d-block mb-1">{{ $row['size_label'] }}</span>
-          @endif
+          <span class="cart-item-base-price d-block mb-1">
+            {{ $row['size_label'] ?? 'Regular' }} - TK {{ $formatCartMoney($unitPrice) }}
+          </span>
 
           @if(!empty($row['addons']))
-            <div class="mb-1">
+            <div class="cart-addon-prices mb-1">
               @foreach($row['addons'] as $addon)
                 <small class="d-block" style="line-height:1.45;overflow-wrap:anywhere;">
-                  <span>
-                    {{ $addon['name'] ?? '' }}@if(filled($addon['description'] ?? null))/{{ $addon['description'] }}@endif
-                    - TK {{ $formatCartMoney($addon['price'] ?? 0) }}
-                  </span>
+                  {{ $addon['name'] ?? '' }}@if(filled($addon['description'] ?? null))/{{ $addon['description'] }}@endif
+                  - TK {{ $formatCartMoney($addon['price'] ?? 0) }}
                 </small>
               @endforeach
             </div>
           @endif
 
-          <span class="cart-item-price d-block mb-2">TK {{ $formatCartMoney($row['line_total'] ?? 0) }}</span>
+          <span class="cart-item-combined-price d-block mb-1">TK {{ $formatCartMoney($combinedUnitPrice) }}</span>
+          @if($quantity > 1)
+            <span class="cart-item-line-total d-block mb-2">Total ({{ $quantity }} items) - TK {{ $formatCartMoney($row['line_total'] ?? ($combinedUnitPrice * $quantity)) }}</span>
+          @endif
 
-          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+          <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mt-2">
             <button type="button"
                     class="btn btn-sm btn-outline-danger"
                     data-cart-remove

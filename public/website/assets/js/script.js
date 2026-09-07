@@ -1,26 +1,6 @@
 // Chomok Restaurant - Custom Scripts
 
 document.addEventListener('DOMContentLoaded', function () {
-  // Menu page only: add a "Category" button into the shared floating
-  // action stack (right after WhatsApp) so both desktop and mobile users
-  // can open the category list as a right-side offcanvas.
-  var categoryOffcanvas = document.getElementById('categoryOffcanvas');
-  var whatsappBtn = document.querySelector('.whatsapp-fab-btn');
-
-  if (categoryOffcanvas && whatsappBtn) {
-    var categoryFabBtn = document.createElement('button');
-    categoryFabBtn.type = 'button';
-    categoryFabBtn.className = 'fab-btn category-fab-btn';
-    categoryFabBtn.setAttribute('data-bs-toggle', 'offcanvas');
-    categoryFabBtn.setAttribute('data-bs-target', '#categoryOffcanvas');
-    categoryFabBtn.setAttribute('aria-controls', 'categoryOffcanvas');
-    categoryFabBtn.setAttribute('aria-label', 'Filter by category');
-    categoryFabBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect>'
-      + '<rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>';
-    whatsappBtn.insertAdjacentElement('afterend', categoryFabBtn);
-  }
-
   // Dashboard: "View All Orders" on the Overview tab lives outside the
   // sidebar's tab list, so switch tabs via the Bootstrap Tab JS API rather
   // than a data-bs-target (which only syncs siblings within the same nav).

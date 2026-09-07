@@ -15,7 +15,8 @@
     <link rel="icon" href="{{ $adminAssetUrl($siteSetting->icon) }}">
   @endif
   <link rel="stylesheet" href="{{ asset('public/website/assets/vendor/bootstrap/css/bootstrap.min.css') }}">
-  <link rel="stylesheet" href="{{ asset('public/website/assets/css/style.css') }}">
+  @php($styleCssVersion = @filemtime(public_path('website/assets/css/style.css')) ?: '1')
+  <link rel="stylesheet" href="{{ asset('public/website/assets/css/style.css') }}?v={{ $styleCssVersion }}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   @yield('css')
     @include('components.password-toggle-assets')
@@ -39,6 +40,7 @@
 
 @include('website.include.header')
 @include('website.include.floating-sidebar')
+@include('website.include.category-offcanvas')
 @include('website.include.cart')
 @include('website.menu.partials.addon-modal')
 
@@ -47,7 +49,8 @@
 @include('website.include.footer')
 
 <script src="{{ asset('public/website/assets/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ asset('public/website/assets/js/script.js') }}"></script>
+@php($siteJsVersion = @filemtime(public_path('website/assets/js/script.js')) ?: '1')
+<script src="{{ asset('public/website/assets/js/script.js') }}?v={{ $siteJsVersion }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
