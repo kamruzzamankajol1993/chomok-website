@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
-class Client extends Authenticatable
+class Client extends Model
 {
-    use HasFactory, Notifiable, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'branch_id', 'created_by', 'code', 'name', 'email', 'phone', 'address',
@@ -33,13 +33,27 @@ class Client extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }
 
-    public function getAuthPasswordName(): string
+    public function scopeVisibleTo(Builder $query, ?User $user): Builder
     {
-        return 'password';
+        if (! $user || $user->canSeeAllBranches()) {
+            return $query;
+        }
+
+        return $query->where('branch_id', $user->branch_id);
+    }
+
+    public function getTotalSpentAttribute(): float
+    {
+        return (float) $this->orders()->where('status', 'delivered')->sum('grand_total');
     }
 }
