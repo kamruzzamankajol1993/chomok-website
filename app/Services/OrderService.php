@@ -18,11 +18,14 @@ class OrderService
     {
         $branchId = (int) $payload['branch_id'];
         $client = ! empty($payload['client_id'])
-            ? Client::query()->whereKey($payload['client_id'])->where('branch_id', $branchId)->first()
+            ? Client::query()
+                ->whereKey($payload['client_id'])
+                ->when($source !== 'website', fn ($query) => $query->where('branch_id', $branchId))
+                ->first()
             : null;
 
         if (! empty($payload['client_id']) && ! $client) {
-            throw ValidationException::withMessages(['client_id' => 'The selected client does not belong to this branch.']);
+            throw ValidationException::withMessages(['client_id' => 'The selected client is not available.']);
         }
 
         [$itemRows, $subtotal] = $this->prepareItems($payload['items'], $branchId);

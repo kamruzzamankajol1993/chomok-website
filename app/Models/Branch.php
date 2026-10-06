@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -45,12 +44,4 @@ class Branch extends Model
         return $this->belongsToMany(MenuItem::class, 'branch_menu_item')->withTimestamps();
     }
 
-    public function scopeVisibleTo(Builder $query, ?User $user): Builder
-    {
-        if (! $user || $user->canSeeAllBranches()) {
-            return $query;
-        }
-
-        return $query->whereKey($user->branch_id);
-    }
 }

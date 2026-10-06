@@ -6,12 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class WebsiteContent extends Model
 {
-    protected $fillable = [
-        'terms_and_conditions',
-        'privacy_policy',
-        'refund_policy',
-        'delivery_info',
-    ];
+    protected $fillable = ['terms_and_conditions', 'privacy_policy', 'refund_policy', 'delivery_info'];
 
     public static function current(): self
     {
