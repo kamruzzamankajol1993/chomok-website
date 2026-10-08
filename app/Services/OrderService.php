@@ -38,16 +38,21 @@ class OrderService
         $discountValue = max((float) ($payload['discount_value'] ?? $payload['discount'] ?? 0), 0);
         if ($discountType === 'percentage') {
             $discountValue = min($discountValue, 100);
-            $discount = round($subtotal * ($discountValue / 100), 2);
+            $discount = (float) ceil($subtotal * ($discountValue / 100));
         } else {
             $discount = min($discountValue, $subtotal);
         }
         $netSubtotal = max($subtotal - $discount, 0);
         $serviceRate = $orderType === 'dine_in' ? max((float) $setting->service_charge, 0) : 0;
-        $serviceAmount = round($netSubtotal * ($serviceRate / 100), 2);
+        $serviceAmount = $serviceRate > 0 ? (float) ceil($netSubtotal * ($serviceRate / 100)) : 0.0;
         $taxRate = max((float) $setting->tax_rate, 0);
-        $taxAmount = round(($netSubtotal + $serviceAmount) * ($taxRate / 100), 2);
-        $deliveryCharge = $orderType === 'delivery' ? max((float) ($payload['delivery_charge'] ?? 0), 0) : 0;
+        $taxAmount = $taxRate > 0 ? (float) ceil(($netSubtotal + $serviceAmount) * ($taxRate / 100)) : 0.0;
+        $deliveryChargeEnabled = (bool) ($setting->delivery_charge_enabled ?? true);
+        $deliveryCharge = $orderType === 'delivery'
+            ? (($source === 'website' && ! $order && ! $deliveryChargeEnabled)
+                ? 0.0
+                : max((float) ($payload['delivery_charge'] ?? 0), 0))
+            : 0;
         $grandTotal = (float) ceil(round($netSubtotal + $serviceAmount + $taxAmount + $deliveryCharge, 2));
         $payment = $this->paymentData($payload, $grandTotal);
         $status = $payload['status'] ?? 'pending';
@@ -86,6 +91,7 @@ class OrderService
                 'tax_rate' => $taxRate,
                 'tax_amount' => $taxAmount,
                 'delivery_charge' => $deliveryCharge,
+                'delivery_charge_option' => $payload['order_type'] === 'delivery' ? ($payload['delivery_charge_option'] ?? null) : null,
                 'grand_total' => $grandTotal,
                 'paid_amount' => $payment['paid_amount'],
                 'due_amount' => max(round($grandTotal - $payment['paid_amount'], 2), 0),
@@ -164,11 +170,16 @@ class OrderService
                 ]);
             }
 
-            $unitPrice = $price->effective_price;
-            $globalAddonTotal = (float) $availableAddons->sum(fn (Addon $addon) => (float) $addon->price);
-            $variationAddonTotal = (float) $availablePriceAddons->sum(fn ($addon) => (float) $addon->price);
-            $addonTotal = $globalAddonTotal + $variationAddonTotal;
-            $lineTotal = round(($unitPrice + $addonTotal) * $quantity, 2);
+            $isBogoFree = str_starts_with((string) ($item['note'] ?? ''), 'BOGO FREE:');
+            $actualUnitPrice = (float) $price->effective_price;
+            $actualGlobalAddonTotal = (float) $availableAddons->sum(fn (Addon $addon) => (float) $addon->price);
+            $actualVariationAddonTotal = (float) $availablePriceAddons->sum(fn ($addon) => (float) $addon->price);
+
+            // A BOGO FREE line keeps the exact same food/variation/add-on selections for
+            // fulfilment, but every charge on that copied line is stored as zero.
+            $unitPrice = $isBogoFree ? 0.0 : $actualUnitPrice;
+            $addonTotal = $isBogoFree ? 0.0 : ($actualGlobalAddonTotal + $actualVariationAddonTotal);
+            $lineTotal = $isBogoFree ? 0.0 : round(($unitPrice + $addonTotal) * $quantity, 2);
             $subtotal += $lineTotal;
 
             $globalAddonRows = $availableAddons->map(fn (Addon $addon) => [
@@ -176,18 +187,18 @@ class OrderService
                 'menu_item_price_addon_id' => null,
                 'addon_name' => $addon->name,
                 'description' => $addon->description,
-                'price' => (float) $addon->price,
+                'price' => $isBogoFree ? 0.0 : (float) $addon->price,
                 'quantity' => $quantity,
-                'line_total' => round((float) $addon->price * $quantity, 2),
+                'line_total' => $isBogoFree ? 0.0 : round((float) $addon->price * $quantity, 2),
             ]);
             $variationAddonRows = $availablePriceAddons->map(fn ($addon) => [
                 'addon_id' => null,
                 'menu_item_price_addon_id' => $addon->id,
                 'addon_name' => $addon->name,
                 'description' => $addon->description,
-                'price' => (float) $addon->price,
+                'price' => $isBogoFree ? 0.0 : (float) $addon->price,
                 'quantity' => $quantity,
-                'line_total' => round((float) $addon->price * $quantity, 2),
+                'line_total' => $isBogoFree ? 0.0 : round((float) $addon->price * $quantity, 2),
             ]);
 
             $rows[] = [

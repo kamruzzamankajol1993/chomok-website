@@ -18,7 +18,7 @@ class Order extends Model
         'split_mfs_reference', 'split_bank_reference', 'customer_name', 'customer_phone',
         'customer_email', 'customer_address', 'delivery_address', 'subtotal', 'discount_type',
         'discount_value', 'discount', 'service_charge_rate', 'service_charge_amount', 'tax_label',
-        'tax_rate', 'tax_amount', 'delivery_charge', 'grand_total', 'paid_amount', 'due_amount',
+        'tax_rate', 'tax_amount', 'delivery_charge', 'delivery_charge_option', 'grand_total', 'paid_amount', 'due_amount',
         'note', 'confirmed_at', 'notification_seen_at', 'notification_dismissed_at',
     ];
 

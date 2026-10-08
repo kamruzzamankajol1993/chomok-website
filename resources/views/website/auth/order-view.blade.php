@@ -12,6 +12,9 @@
         <div class="checkout-item-info">
           <h4>{{ $item->item_name }}</h4>
           <span>{{ $item->size_label }} × {{ $item->quantity }}</span>
+          @if(str_starts_with((string) $item->note, 'BOGO FREE:'))
+            <small class="d-block mt-1 fw-bold">🎁 FREE ITEM — same variation/size, add-ons and options as the paid item.</small>
+          @endif
           @if($item->addons->isNotEmpty())
             <div class="mt-1">
             @foreach($item->addons as $addon)
@@ -24,7 +27,13 @@
         <span class="checkout-item-price">TK {{ rtrim(rtrim(number_format((float)$item->line_total,2,'.',''),'0'),'.') }}</span>
       </div>
     @endforeach
-    <div class="checkout-totals"><div class="checkout-total-row checkout-total-final"><span>Total</span><span>TK {{ rtrim(rtrim(number_format((float)$order->grand_total,2,'.',''),'0'),'.') }}</span></div></div>
+    <div class="checkout-totals">
+      <div class="checkout-total-row"><span>Subtotal</span><span>TK {{ rtrim(rtrim(number_format((float)$order->subtotal,2,'.',''),'0'),'.') }}</span></div>
+      @if((float)$order->discount > 0)<div class="checkout-total-row"><span>Discount</span><span>- TK {{ rtrim(rtrim(number_format((float)$order->discount,2,'.',''),'0'),'.') }}</span></div>@endif
+      @if((float)$order->tax_rate > 0)<div class="checkout-total-row"><span>{{ $order->tax_label ?: 'VAT' }} ({{ rtrim(rtrim(number_format((float)$order->tax_rate,2,'.',''),'0'),'.') }}%)</span><span>TK {{ rtrim(rtrim(number_format((float)$order->tax_amount,2,'.',''),'0'),'.') }}</span></div>@endif
+      @if((float)$order->delivery_charge > 0)<div class="checkout-total-row"><span>Delivery Fee</span><span>TK {{ rtrim(rtrim(number_format((float)$order->delivery_charge,2,'.',''),'0'),'.') }}</span></div>@endif
+      <div class="checkout-total-row checkout-total-final"><span>Total</span><span>TK {{ rtrim(rtrim(number_format((float)$order->grand_total,2,'.',''),'0'),'.') }}</span></div>
+    </div>
     <a href="{{ route('client.dashboard') }}" class="btn-wc-hero">Back to Dashboard</a>
   </div>
 </section>

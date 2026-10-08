@@ -155,7 +155,7 @@
                   <img src="{{ $item->mainImage?->image ? $adminAssetUrl($item->mainImage->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt="{{ $item->name }}" class="menu-item-img">
                 </a>
                 <div class="menu-item-banner">
-                  <h5 class="menu-item-name">{{ $item->name }}</h5>
+                  <h5 class="menu-item-name"><a href="{{ route('menu.show', $item) }}" style="color:inherit;text-decoration:none;">{{ $item->name }}</a></h5>
                   <div class="menu-item-prices">
                     @foreach($item->prices as $price)
                       <label class="price-pill">
@@ -165,7 +165,7 @@
                     @endforeach
                   </div>
                   <div class="menu-item-actions">
-                    <button type="button" class="btn-add-cart" data-add-cart data-menu-item-id="{{ $item->id }}" data-default-price-id="{{ $firstPrice?->id }}" data-has-addons="{{ ($item->addons->isNotEmpty() || $item->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty())) ? '1' : '0' }}" data-detail-url="{{ route('menu.show', $item) }}">Add to Cart</button>
+                    <button type="button" class="btn-add-cart" data-add-cart data-menu-item-id="{{ $item->id }}" data-default-price-id="{{ $firstPrice?->id }}" data-has-addons="{{ ($item->addons->isNotEmpty() || $item->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty())) ? '1' : '0' }}" data-config-url="{{ route('menu.configuration', $item) }}" data-detail-url="{{ route('menu.show', $item) }}">Add to Cart</button>
                   </div>
                 </div>
               </div>

@@ -157,15 +157,32 @@
       }
       const isDetailAdd = addButton.dataset.detailAddCart === '1';
 
-      if (hasAddons && !isDetailAdd) {
-        const detailUrl = addButton.dataset.detailUrl;
-        if (!detailUrl) {
-          Swal.fire({icon:'error', title:'Unable to continue', text:'Product details URL is unavailable.'});
+      if (!isDetailAdd) {
+        const configUrl = addButton.dataset.configUrl;
+        if (!configUrl) {
+          Swal.fire({icon:'error', title:'Unable to continue', text:'Product configuration is unavailable.'});
           return;
         }
-        const detailLocation = new URL(detailUrl, window.location.href);
-        detailLocation.searchParams.set('price_id', String(priceId));
-        window.location.assign(detailLocation.toString());
+        try {
+          addButton.disabled = true;
+          const url = new URL(configUrl, window.location.href);
+          url.searchParams.set('price_id', String(priceId));
+          const response = await fetch(url.toString(), {headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}, cache:'no-store'});
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.message || 'Unable to load product options.');
+          const body = document.getElementById('addonSelectionBody');
+          if (!body) throw new Error('Product option modal is unavailable.');
+          body.innerHTML = data.html || '';
+          const form = body.querySelector('#addonSelectionForm');
+          const selectedPriceInput = form?.querySelector(`input[name="menu_item_price_id"][value="${priceId}"]`);
+          if (selectedPriceInput) selectedPriceInput.checked = true;
+          syncVariationAddonGroups(form, selectedPriceInput?.value || form?.querySelector('input[name="menu_item_price_id"]:checked')?.value);
+          addonModal?.show();
+        } catch (error) {
+          Swal.fire({icon:'error', title:'Unable to load options', text:error.message});
+        } finally {
+          addButton.disabled = false;
+        }
         return;
       }
 

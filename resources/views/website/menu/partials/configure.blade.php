@@ -1,7 +1,21 @@
 <form id="addonSelectionForm">
   <input type="hidden" name="menu_item_id" value="{{ $menuItem->id }}">
-  <h4 class="menu-item-name">{{ $menuItem->name }}</h4>
 
+  @php($modalImage = $menuItem->mainImage)
+  <div class="modal-product-preview">
+    <div class="modal-product-image-wrap">
+      <img src="{{ $modalImage?->image ? $adminAssetUrl($modalImage->image) : asset('public/website/assets/images/food-placeholder.jpg') }}" alt="{{ $menuItem->name }}" class="modal-product-image">
+    </div>
+    <div class="modal-product-copy">
+      <h4 class="menu-item-name">{{ $menuItem->name }}</h4>
+      @if(filled($menuItem->description))
+        <small>{{ \Illuminate\Support\Str::limit(strip_tags($menuItem->description), 105) }}</small>
+      @endif
+    </div>
+  </div>
+
+  @php($requestedPriceId = (int) request()->query('price_id', 0))
+  @php($selectedPriceId = $menuItem->prices->contains(fn ($price) => (int) $price->id === $requestedPriceId) ? $requestedPriceId : (int) ($menuItem->prices->first()?->id ?? 0))
   @php($hasVariationAddons = $menuItem->prices->contains(fn ($price) => $price->variationAddons->isNotEmpty()))
 
   <div class="food-view-block">
@@ -9,7 +23,7 @@
     <div class="menu-item-prices">
       @foreach($menuItem->prices as $price)
         <label class="price-pill">
-          <input type="radio" name="menu_item_price_id" value="{{ $price->id }}" class="price-pill-input" @checked($loop->first)>
+          <input type="radio" name="menu_item_price_id" value="{{ $price->id }}" class="price-pill-input" @checked((int) $price->id === $selectedPriceId)>
           <em>{{ $price->size_label ?: 'Regular' }}</em>TK {{ rtrim(rtrim(number_format((float)$price->effective_price, 2, '.', ''), '0'), '.') }}
         </label>
       @endforeach
@@ -18,7 +32,7 @@
     @if($hasVariationAddons)
       @foreach($menuItem->prices as $price)
         @if($price->variationAddons->isNotEmpty())
-          <div data-variation-addon-group data-price-id="{{ $price->id }}" class="{{ $loop->first ? '' : 'd-none' }}">
+          <div data-variation-addon-group data-price-id="{{ $price->id }}" class="modal-variation-addon-group {{ (int) $price->id === $selectedPriceId ? '' : 'd-none' }}">
             <h6 class="food-view-label">{{ $price->size_label ?: 'Regular' }} Add-Ons</h6>
             <div class="addon-list">
               @foreach($price->variationAddons as $variationAddon)

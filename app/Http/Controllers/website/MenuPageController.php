@@ -54,7 +54,7 @@ class MenuPageController extends Controller
     public function configuration(MenuItem $menuItem): JsonResponse
     {
         abort_unless($menuItem->is_active, 404);
-        $menuItem->load(['prices.variationAddons', 'addons' => fn ($q) => $q->where('is_active', true)]);
+        $menuItem->load(['mainImage', 'prices.variationAddons', 'addons' => fn ($q) => $q->where('is_active', true)]);
 
         return response()->json([
             'html' => view('website.menu.partials.configure', compact('menuItem'))->render(),
