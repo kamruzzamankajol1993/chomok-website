@@ -4,9 +4,11 @@
 <section class="dashboard-section">
   <div class="menu-section-head"><span class="badge-text">Order Details</span><h1 class="menu-section-title">{{ $order->order_number }}</h1></div>
   <div class="checkout-summary mx-auto" style="max-width:850px">
+    <div class="checkout-total-row"><span>Order Type</span><strong>{{ $order->order_type_label }}</strong></div>
     <div class="checkout-total-row"><span>Status</span><strong>{{ ucfirst($order->status) }}</strong></div>
     <div class="checkout-total-row"><span>Branch</span><strong>{{ $order->branch?->name }}</strong></div>
     <div class="checkout-total-row"><span>Placed</span><strong>{{ $order->created_at?->format('d/m/Y h:i A') }}</strong></div>
+    @if($order->delivery_address)<div class="checkout-total-row"><span>Delivery Address</span><strong>{{ $order->delivery_address }}</strong></div>@endif
     @foreach($order->items as $item)
       <div class="checkout-item">
         <div class="checkout-item-info">

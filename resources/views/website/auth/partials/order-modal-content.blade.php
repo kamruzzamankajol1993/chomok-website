@@ -1,5 +1,6 @@
 <div class="checkout-summary w-100">
   <div class="checkout-total-row"><span>Order ID</span><strong>{{ $order->order_number }}</strong></div>
+  <div class="checkout-total-row"><span>Order Type</span><strong>{{ $order->order_type_label }}</strong></div>
   <div class="checkout-total-row"><span>Status</span><strong>{{ ucfirst($order->status) }}</strong></div>
   <div class="checkout-total-row"><span>Branch</span><strong>{{ $order->branch?->name }}</strong></div>
   <div class="checkout-total-row"><span>Placed</span><strong>{{ $order->created_at?->format('d/m/Y h:i A') }}</strong></div>

@@ -34,6 +34,17 @@ class Order extends Model
         ];
     }
 
+    public function getOrderTypeLabelAttribute(): string
+    {
+        return match ($this->order_type) {
+            'delivery' => 'Home Delivery',
+            'takeaway' => 'Takeaway',
+            'pickup' => 'Pickup',
+            'dine_in' => 'Dine In',
+            default => ucwords(str_replace('_', ' ', (string) $this->order_type)),
+        };
+    }
+
     public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
     public function client(): BelongsTo { return $this->belongsTo(Client::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }

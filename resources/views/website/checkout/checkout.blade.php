@@ -2,7 +2,13 @@
 @section('title', 'Checkout | '.($siteSetting?->restaurant_name ?? 'Chomok Restaurant'))
 @section('css')
 <style>
+  .checkout-form [hidden]{display:none!important}
   .checkout-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .checkout-order-type-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .checkout-order-type-grid .checkout-choice-card{padding:14px 12px;min-height:95px}
+  .checkout-order-type-grid .checkout-choice-copy strong{font-size:14px}
+  .checkout-order-type-grid .checkout-choice-copy small{font-size:12px}
+  .checkout-order-type-grid .checkout-choice input:focus-visible + .checkout-choice-card{outline:3px solid #d1b46b;outline-offset:2px}
   .checkout-choice{position:relative;display:block;margin:0;cursor:pointer}
   .checkout-choice input{position:absolute;opacity:0;pointer-events:none}
   .checkout-choice-card{height:100%;border:1px solid #dedede;border-radius:14px;padding:14px 15px;background:#fff;transition:.2s ease;display:flex;gap:11px;align-items:flex-start}
@@ -23,7 +29,7 @@
   .first-order-offer strong{display:block;font-size:17px;margin-bottom:3px}
   .first-order-offer span{display:block;color:#555;line-height:1.45}
   .checkout-free-line{display:inline-flex;align-items:center;align-self:flex-start;width:fit-content;max-width:100%;gap:6px;margin-top:8px;padding:7px 11px;border:1px solid #d5b84b;border-radius:10px;background:#fff4c2;color:#171717!important;opacity:1!important;font-size:13px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
-  @media(max-width:767.98px){.checkout-choice-grid{grid-template-columns:1fr}}
+  @media(max-width:767.98px){.checkout-choice-grid{grid-template-columns:1fr}.checkout-order-type-grid{grid-template-columns:1fr}.checkout-order-type-grid .checkout-choice-card{min-height:auto}}
 </style>
 @endsection
 @section('body')
@@ -39,16 +45,31 @@
     @csrf
     <div class="checkout-layout">
       <div class="checkout-form-wrap">
-        <h2 class="contact-form-title">Delivery Details</h2>
+        <h2 class="contact-form-title">Order Details</h2>
+
+        <div class="form-group">
+          <label>Order Type <span aria-hidden="true">*</span></label>
+          <div class="checkout-choice-grid checkout-order-type-grid" role="radiogroup" aria-label="Order Type">
+            @foreach(['delivery' => ['Home Delivery', 'Delivered to your address'], 'takeaway' => ['Takeaway', 'Packaged for collection'], 'pickup' => ['Pickup', 'Collect from your branch']] as $orderType => $details)
+              <label class="checkout-choice">
+                <input type="radio" name="order_type" value="{{ $orderType }}" @checked(old('order_type', 'delivery') === $orderType) required>
+                <span class="checkout-choice-card">
+                  <span class="checkout-choice-dot" aria-hidden="true"></span>
+                  <span class="checkout-choice-copy"><strong>{{ $details[0] }}</strong><small>{{ $details[1] }}</small></span>
+                </span>
+              </label>
+            @endforeach
+          </div>
+        </div>
 
         <div class="form-group">
           <label for="checkout-phone">Phone Number</label>
           <input type="tel" id="checkout-phone" name="phone" value="{{ old('phone', $client->phone) }}" placeholder="Phone Number" autocomplete="tel" required>
         </div>
 
-        <div class="form-group">
-          <label for="checkout-address">Delivery Address</label>
-          <input type="text" id="checkout-address" name="address" value="{{ old('address', $client->address) }}" placeholder="House, Road, Area" required>
+        <div class="form-group" id="checkoutDeliveryAddressGroup">
+          <label for="checkout-address">Delivery Address <span aria-hidden="true">*</span></label>
+          <input type="text" id="checkout-address" name="address" value="{{ old('address', $client->address) }}" placeholder="House, Road, Area" autocomplete="street-address" required>
         </div>
 
         <div class="form-group">
@@ -68,7 +89,7 @@
         </div>
 
         @if($deliveryConfig['enabled'])
-          <div class="form-group">
+          <div class="form-group" id="checkoutDeliveryInfoGroup">
             <div class="delivery-charge-info" aria-label="Delivery charge information">
               <div class="delivery-charge-info-title">Delivery Charge</div>
               <div class="delivery-charge-info-row">
@@ -86,7 +107,7 @@
 
         <h2 class="contact-form-title checkout-payment-title">Payment Method</h2>
         <div class="payment-methods">
-          <label class="price-pill payment-pill checkout-cod-only"><input type="radio" name="payment_display" value="cod" class="price-pill-input" checked disabled>Cash on Delivery</label>
+          <label class="price-pill payment-pill checkout-cod-only"><input type="radio" name="payment_display" value="cod" class="price-pill-input" checked disabled><span id="checkoutPaymentLabel">Cash on Delivery</span></label>
         </div>
       </div>
 
@@ -136,7 +157,7 @@
             <div class="checkout-total-row"><span>{{ $summary['tax_label'] }} ({{ $formatCheckoutMoney($summary['tax_rate']) }}%)</span><span>TK {{ $formatCheckoutMoney($summary['tax']) }}</span></div>
           @endif
           @if($deliveryConfig['enabled'])
-            <div class="checkout-total-row"><span>Delivery Fee</span><span id="checkoutDeliveryFee">TK {{ $formatCheckoutMoney($summary['delivery']) }}</span></div>
+            <div class="checkout-total-row" id="checkoutDeliveryFeeRow"><span>Delivery Fee</span><span id="checkoutDeliveryFee">TK {{ $formatCheckoutMoney($summary['delivery']) }}</span></div>
           @endif
           <div class="checkout-total-row checkout-total-final"><span>Total</span><span id="checkoutGrandTotal">TK {{ $formatCheckoutMoney($summary['grand']) }}</span></div>
         </div>
@@ -145,4 +166,38 @@
     </div>
   </form>
 </section>
+@endsection
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const typeInputs = document.querySelectorAll('input[name="order_type"]');
+  const addressGroup = document.getElementById('checkoutDeliveryAddressGroup');
+  const addressInput = document.getElementById('checkout-address');
+  const deliveryInfo = document.getElementById('checkoutDeliveryInfoGroup');
+  const deliveryRow = document.getElementById('checkoutDeliveryFeeRow');
+  const deliveryFee = document.getElementById('checkoutDeliveryFee');
+  const grandTotal = document.getElementById('checkoutGrandTotal');
+  const paymentLabel = document.getElementById('checkoutPaymentLabel');
+  const baseAmount = Number(@json($summary['before_delivery']));
+  const deliveryAmount = Number(@json($deliveryConfig['enabled'] ? $deliveryConfig['within'] : 0));
+  const formatMoney = number => Number(number).toFixed(2).replace(/\.?0+$/, '');
+
+  function syncOrderType() {
+    const chosen = document.querySelector('input[name="order_type"]:checked');
+    const type = chosen ? chosen.value : 'delivery';
+    const isDelivery = type === 'delivery';
+    addressGroup.hidden = !isDelivery;
+    addressInput.required = isDelivery;
+    addressInput.disabled = !isDelivery;
+    if (deliveryInfo) deliveryInfo.hidden = !isDelivery;
+    if (deliveryRow) deliveryRow.hidden = !isDelivery;
+    if (deliveryFee) deliveryFee.textContent = 'TK ' + formatMoney(isDelivery ? deliveryAmount : 0);
+    grandTotal.textContent = 'TK ' + formatMoney(Math.ceil(Number((baseAmount + (isDelivery ? deliveryAmount : 0)).toFixed(2))));
+    paymentLabel.textContent = isDelivery ? 'Cash on Delivery' : 'Cash on Collection';
+  }
+  typeInputs.forEach(input => input.addEventListener('change', syncOrderType));
+  syncOrderType();
+});
+</script>
 @endsection

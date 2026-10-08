@@ -27,7 +27,7 @@ class CheckoutController extends Controller
         $client = Auth::guard('client')->user();
         $branches = Branch::query()->where('status', 'active')->where('accepting_orders', true)->orderBy('name')->get();
         $setting = Setting::current();
-        $summary = $this->summary($cart, $setting, 'within_1km');
+        $summary = $this->summary($cart, $setting, 'within_1km', old('order_type', 'delivery'));
         $deliveryConfig = $this->deliveryConfig($setting);
         $firstOrderOfferEligible = ! Order::withTrashed()
             ->where('client_id', $client->id)
@@ -48,14 +48,15 @@ class CheckoutController extends Controller
 
         $data = $request->validate([
             'phone' => ['required', 'string', 'max:50'],
-            'address' => ['required', 'string', 'max:2000'],
+            'order_type' => ['required', Rule::in(['delivery', 'takeaway', 'pickup'])],
+            'address' => ['required_if:order_type,delivery', 'nullable', 'string', 'max:2000'],
             'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($q) => $q->where('status', 'active')->where('accepting_orders', 1)->whereNull('deleted_at'))],
         ]);
 
         $paymentType = 'cash_on_delivery';
         $setting = Setting::current();
         $deliveryConfig = $this->deliveryConfig($setting);
-        $deliveryCharge = $deliveryConfig['enabled'] ? $deliveryConfig['within'] : 0.0;
+        $deliveryCharge = $data['order_type'] === 'delivery' && $deliveryConfig['enabled'] ? $deliveryConfig['within'] : 0.0;
 
         // Lock the client row while checking/creating the first website order.
         // This prevents two near-simultaneous checkout requests from both receiving
@@ -101,9 +102,9 @@ class CheckoutController extends Controller
                 'customer_name' => $client->name,
                 'customer_phone' => trim($data['phone']),
                 'customer_email' => $client->email,
-                'customer_address' => $data['address'],
-                'order_type' => 'delivery',
-                'delivery_address' => trim($data['address']),
+                'customer_address' => $data['order_type'] === 'delivery' ? trim($data['address']) : null,
+                'order_type' => $data['order_type'],
+                'delivery_address' => $data['order_type'] === 'delivery' ? trim($data['address']) : null,
                 'delivery_charge' => $deliveryCharge,
                 'delivery_charge_option' => null,
                 'discount_type' => 'fixed',
@@ -152,13 +153,13 @@ class CheckoutController extends Controller
         ];
     }
 
-    private function summary(array $cart, Setting $setting, string $deliveryOption): array
+    private function summary(array $cart, Setting $setting, string $deliveryOption, string $orderType = 'delivery'): array
     {
         $subtotal = round(collect($cart)->sum(fn ($row) => (float) ($row['line_total'] ?? 0)), 2);
         $taxRate = max((float) $setting->tax_rate, 0);
         $tax = $taxRate > 0 ? (float) ceil($subtotal * ($taxRate / 100)) : 0.0;
         $deliveryConfig = $this->deliveryConfig($setting);
-        $delivery = $deliveryConfig['enabled']
+        $delivery = $deliveryConfig['enabled'] && $orderType === 'delivery'
             ? ($deliveryOption === 'outside_1km' ? $deliveryConfig['outside_base'] : $deliveryConfig['within'])
             : 0.0;
         $beforeDelivery = round($subtotal + $tax, 2);

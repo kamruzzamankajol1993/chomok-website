@@ -37,7 +37,7 @@ return new class extends Migration
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('order_number')->unique();
             $table->enum('source', ['admin', 'website'])->default('admin')->index();
-            $table->enum('order_type', ['dine_in', 'delivery'])->default('dine_in')->index();
+            $table->string('order_type', 50)->default('dine_in')->index();
             $table->enum('status', ['pending', 'confirmed', 'processing', 'delivered', 'cancelled'])->default('pending')->index();
             $table->enum('payment_type', ['cash', 'cash_on_delivery', 'mfs', 'bank', 'split'])->default('cash');
             $table->string('payment_reference')->nullable();
