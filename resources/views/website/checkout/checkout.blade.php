@@ -122,7 +122,7 @@
         @if($firstOrderOfferEligible)
           <div class="first-order-offer">
             <strong>First Order Offer — Buy 1 Get 1 Free</strong>
-            <span>Only on your first order: the FIRST food added to your cart comes with exactly ONE free matching unit (same size/variation and selected add-ons/options). Other cart foods do not receive free items. If you remove that first food, the next first remaining food becomes eligible.</span>
+            <span>First order only: Get 1 FREE matching item with the first food in your cart.</span>
           </div>
         @endif
         @foreach($cart as $row)
