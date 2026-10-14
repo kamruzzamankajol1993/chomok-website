@@ -8,6 +8,8 @@ use App\Models\Client;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Services\OrderService;
+use App\Services\BranchOrderHours;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,7 +33,6 @@ class CheckoutController extends Controller
         $deliveryConfig = $this->deliveryConfig($setting);
         $firstOrderOfferEligible = ! Order::withTrashed()
             ->where('client_id', $client->id)
-            ->where('source', 'website')
             ->exists();
 
         return view('website.checkout.checkout', compact(
@@ -39,7 +40,7 @@ class CheckoutController extends Controller
         ));
     }
 
-    public function processCheckout(Request $request, OrderService $orders): RedirectResponse
+    public function processCheckout(Request $request, OrderService $orders, BranchOrderHours $hours): RedirectResponse
     {
         $cart = $request->session()->get('cart', []);
         if (empty($cart)) {
@@ -58,10 +59,17 @@ class CheckoutController extends Controller
         $deliveryConfig = $this->deliveryConfig($setting);
         $deliveryCharge = $data['order_type'] === 'delivery' && $deliveryConfig['enabled'] ? $deliveryConfig['within'] : 0.0;
 
-        // Lock the client row while checking/creating the first website order.
+        // Lock the client row while checking/creating the first order.
         // This prevents two near-simultaneous checkout requests from both receiving
         // the one-time Buy 1 Get 1 Free offer.
-        $order = DB::transaction(function () use ($request, $orders, $cart, $data, $paymentType, $deliveryCharge): Order {
+        $order = DB::transaction(function () use ($request, $orders, $hours, $cart, $data, $paymentType, $deliveryCharge): Order {
+            // Never trust the browser's disabled button: validate the chosen branch on the server.
+            $branch = Branch::query()->whereKey($data['branch_id'])->lockForUpdate()->firstOrFail();
+            $availability = $hours->status($branch);
+            if (! $availability['can_order']) {
+                throw ValidationException::withMessages(['branch_id' => $availability['message']]);
+            }
+
             $client = Client::query()
                 ->whereKey(Auth::guard('client')->id())
                 ->lockForUpdate()
@@ -69,32 +77,28 @@ class CheckoutController extends Controller
 
             $firstOrderOfferEligible = ! Order::withTrashed()
                 ->where('client_id', $client->id)
-                ->where('source', 'website')
                 ->exists();
 
-            $items = collect($cart)->flatMap(function ($row) use ($firstOrderOfferEligible): array {
-                $quantity = max((int) ($row['quantity'] ?? 1), 1);
+            // Session cart preserves insertion order. Only the FIRST remaining food
+            // receives ONE free matching unit, even if quantity > 1 or other foods follow.
+            $items = [];
+            foreach (array_values($cart) as $index => $row) {
                 $paidItem = [
                     'menu_item_id' => (int) $row['menu_item_id'],
                     'menu_item_price_id' => (int) $row['menu_item_price_id'],
-                    'quantity' => $quantity,
+                    'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
                     'addon_ids' => array_values($row['addon_ids'] ?? []),
                     'price_addon_ids' => array_values($row['price_addon_ids'] ?? []),
                     'note' => null,
                 ];
-
-                if (! $firstOrderOfferEligible) {
-                    return [$paidItem];
+                $items[] = $paidItem;
+                if ($firstOrderOfferEligible && $index === 0) {
+                    $freeItem = $paidItem;
+                    $freeItem['quantity'] = 1;
+                    $freeItem['note'] = 'BOGO FREE: One matching unit of the first food added to cart (same size and selected options).';
+                    $items[] = $freeItem;
                 }
-
-                // The free BOGO line is a true second order item with exactly the same
-                // food, size/variation, quantity and selected add-ons/options. OrderService
-                // recognises the BOGO FREE marker and stores this copied line at zero price.
-                $freeItem = $paidItem;
-                $freeItem['note'] = 'BOGO FREE: First Order Buy 1 Get 1 Free — identical food, variation/size, add-ons and options.';
-
-                return [$paidItem, $freeItem];
-            })->values()->all();
+            }
 
             $payload = [
                 'branch_id' => (int) $data['branch_id'],
@@ -114,7 +118,7 @@ class CheckoutController extends Controller
                 'paid_amount' => 0,
                 'status' => 'pending',
                 'note' => $firstOrderOfferEligible
-                    ? 'FIRST ORDER OFFER APPLIED: Buy 1 Get 1 Free on each ordered food. The free copy is identical to the paid item, including the same variation/size, selected add-ons and options.'
+                    ? 'FIRST ORDER OFFER APPLIED: One free unit of the first cart food only; other foods are not eligible. Same size, add-ons and options as that food.'
                     : null,
                 'items' => $items,
             ];

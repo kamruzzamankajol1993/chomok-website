@@ -25,6 +25,8 @@
   .delivery-charge-info-row:first-of-type{border-top:0}
   .delivery-charge-info-row strong{color:#111;white-space:nowrap}
   .delivery-charge-info-note{display:block;margin-top:9px;color:#737373;font-size:12px;line-height:1.45}
+  .order-availability-message{padding:12px 15px;border-radius:11px;border:1px solid #ecb7a9;background:#fff5f2;color:#8f2920;font-weight:650;margin-top:12px;line-height:1.5}
+  .order-availability-message[hidden]{display:none!important}
   .first-order-offer{border:1px solid #111;border-radius:16px;padding:14px 16px;margin:0 0 18px;background:#fff;box-shadow:0 8px 22px rgba(0,0,0,.05)}
   .first-order-offer strong{display:block;font-size:17px;margin-bottom:3px}
   .first-order-offer span{display:block;color:#555;line-height:1.45}
@@ -41,6 +43,9 @@
 <section class="checkout-section">
   <div class="menu-section-head"><span class="badge-text">Almost There</span><h1 class="menu-section-title">Checkout</h1></div>
 
+  @if($errors->any())
+    <div class="order-availability-message" role="alert" style="margin-bottom:16px">{{ $errors->first() }}</div>
+  @endif
   <form class="contact-form checkout-form" action="{{ route('checkout.process') }}" method="post">
     @csrf
     <div class="checkout-layout">
@@ -86,6 +91,7 @@
               </label>
             @endforeach
           </div>
+          <p id="branchOrderingStatus" class="order-availability-message" role="status" aria-live="polite" hidden></p>
         </div>
 
         @if($deliveryConfig['enabled'])
@@ -116,7 +122,7 @@
         @if($firstOrderOfferEligible)
           <div class="first-order-offer">
             <strong>First Order Offer — Buy 1 Get 1 Free</strong>
-            <span>Every food in this order gets the same quantity free. The free item is an exact copy of the paid item — same size/variation, same add-ons and same selected options.</span>
+            <span>Only on your first order: the FIRST food added to your cart comes with exactly ONE free matching unit (same size/variation and selected add-ons/options). Other cart foods do not receive free items. If you remove that first food, the next first remaining food becomes eligible.</span>
           </div>
         @endif
         @foreach($cart as $row)
@@ -145,8 +151,8 @@
               @if($quantity > 1)
                 <small class="checkout-line-total">Total ({{ $quantity }} items) - TK {{ $formatCheckoutMoney($row['line_total'] ?? ($combinedUnitPrice * $quantity)) }}</small>
               @endif
-              @if($firstOrderOfferEligible)
-                <span class="checkout-free-line">🎁 FREE ×{{ $quantity }} — Same size, add-ons &amp; options</span>
+              @if($firstOrderOfferEligible && $loop->first)
+                <span class="checkout-free-line">🎁 1 FREE matching item (first cart food only)</span>
               @endif
             </div>
           </div>
@@ -161,7 +167,7 @@
           @endif
           <div class="checkout-total-row checkout-total-final"><span>Total</span><span id="checkoutGrandTotal">TK {{ $formatCheckoutMoney($summary['grand']) }}</span></div>
         </div>
-        <button type="submit" class="btn-wc-hero checkout-place-order">Place Order</button>
+        <button type="submit" class="btn-wc-hero checkout-place-order" id="checkoutPlaceOrder" disabled>Choose a branch to order</button>
       </div>
     </div>
   </form>
@@ -198,6 +204,55 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   typeInputs.forEach(input => input.addEventListener('change', syncOrderType));
   syncOrderType();
+  const branchInputs = document.querySelectorAll('input[name="branch_id"]');
+  const orderButton = document.getElementById('checkoutPlaceOrder');
+  const orderStatus = document.getElementById('branchOrderingStatus');
+  const form = document.querySelector('.checkout-form');
+  const endpointBase = @json(url('/branch'));
+  let branchOpen = false;
+  let statusRequest = 0;
+  function renderStatus(open, message) {
+    branchOpen = open;
+    orderButton.disabled = !open;
+    orderButton.textContent = open ? 'Place Order' : 'Ordering unavailable';
+    orderStatus.hidden = !message;
+    orderStatus.textContent = message || '';
+  }
+  async function refreshBranchStatus() {
+    const checked = document.querySelector('input[name="branch_id"]:checked');
+    const requestNumber = ++statusRequest;
+    if (!checked) {
+      renderStatus(false, 'Please select a branch to check ordering availability.');
+      return false;
+    }
+    renderStatus(false, 'Checking branch availability…');
+    try {
+      const response = await fetch(endpointBase + '/' + encodeURIComponent(checked.value) + '/order-status', {
+        headers:{'Accept':'application/json'}, credentials:'same-origin', cache:'no-store'
+      });
+      if (!response.ok) throw new Error('Status could not be checked');
+      const status = await response.json();
+      if (requestNumber !== statusRequest) return false;
+      renderStatus(Boolean(status.can_order), status.can_order ? '' : status.message);
+      return Boolean(status.can_order);
+    } catch (e) {
+      if (requestNumber === statusRequest) renderStatus(false, 'Unable to verify branch availability. Please try again.');
+      return false;
+    }
+  }
+  branchInputs.forEach(input => input.addEventListener('change', refreshBranchStatus));
+  refreshBranchStatus();
+  setInterval(refreshBranchStatus, 60000);
+  let submitting = false;
+  form.addEventListener('submit', async function (event) {
+    if (submitting) return;
+    event.preventDefault();
+    const open = await refreshBranchStatus();
+    if (!open) return;
+    submitting = true;
+    orderButton.disabled = true;
+    form.submit();
+  });
 });
 </script>
 @endsection

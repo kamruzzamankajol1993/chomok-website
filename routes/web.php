@@ -4,6 +4,7 @@ use App\Http\Controllers\website\AboutPageController;
 use App\Http\Controllers\website\AuthController;
 use App\Http\Controllers\website\BranchPageController;
 use App\Http\Controllers\website\CartController;
+use App\Http\Controllers\website\BranchOrderStatusController;
 use App\Http\Controllers\website\CheckoutController;
 use App\Http\Controllers\website\ContactPageController;
 use App\Http\Controllers\website\ExtrapageController;
@@ -24,6 +25,7 @@ Route::get('/', [HomePageController::class, 'index'])->name('home.index');
 Route::get('/login', [AuthController::class, 'showLoginForm'])->middleware('guest:client')->name('login');
 Route::get('/about', [AboutPageController::class, 'index'])->name('about.index');
 Route::get('/branch', [BranchPageController::class, 'index'])->name('branch.index');
+Route::get('/branch/{branch}/order-status', [BranchOrderStatusController::class, 'show'])->whereNumber('branch')->middleware('throttle:60,1')->name('branch.order-status');
 Route::get('/contact', [ContactPageController::class, 'index'])->name('contact.index');
 Route::post('/contact', [ContactPageController::class, 'store'])->middleware('throttle:10,1')->name('contact.store');
 
