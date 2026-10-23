@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Services\BranchOrderHours;
 use App\Services\OrderService;
 use App\Services\PromotionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,6 +35,7 @@ class CheckoutController extends Controller
         $selectedBranchId = old('branch_id', $request->session()->get('checkout_branch_id'));
         $selectedBranchId = is_numeric($selectedBranchId) ? (int) $selectedBranchId : null;
         $couponCode = $request->session()->get('checkout_coupon_code');
+        $promotionNotice = $request->session()->get('promotion_notice');
 
         try {
             $promotionQuote = $promotions->quote($client, $sessionCart, $couponCode, false, $selectedBranchId);
@@ -54,8 +56,80 @@ class CheckoutController extends Controller
         $deliveryConfig = $this->deliveryConfig($setting);
 
         return view('website.checkout.checkout', compact(
-            'cart', 'client', 'branches', 'summary', 'deliveryConfig', 'promotionQuote', 'couponCode', 'selectedBranchId'
+            'cart', 'client', 'branches', 'summary', 'deliveryConfig', 'promotionQuote', 'couponCode', 'selectedBranchId', 'promotionNotice'
         ));
+    }
+
+    public function previewPromotions(Request $request, PromotionService $promotions): JsonResponse
+    {
+        $data = $request->validate([
+            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($query) => $query
+                ->where('status', 'active')
+                ->where('accepting_orders', true)
+                ->whereNull('deleted_at'))],
+            'order_type' => ['nullable', Rule::in(['delivery', 'takeaway', 'pickup'])],
+        ]);
+
+        $cart = $request->session()->get('cart', []);
+        if (empty($cart)) {
+            return response()->json(['message' => 'Your cart is empty.'], 422);
+        }
+
+        $client = Auth::guard('client')->user();
+        $branchId = (int) $data['branch_id'];
+        $orderType = $data['order_type'] ?? 'delivery';
+        $request->session()->put('checkout_branch_id', $branchId);
+        $couponCode = $request->session()->get('checkout_coupon_code');
+        $promotionNotice = null;
+
+        try {
+            $promotionQuote = $promotions->quote($client, $cart, $couponCode, false, $branchId);
+        } catch (ValidationException $exception) {
+            if (! filled($couponCode)) {
+                return response()->json(['message' => 'Promotions could not be refreshed. Please reload checkout.'], 422);
+            }
+
+            $request->session()->forget('checkout_coupon_code');
+            $promotionNotice = 'Coupon '.strtoupper((string) $couponCode).' was removed because it is not valid for the selected branch or current cart. Any eligible BOGO offer may now apply.';
+            $request->session()->flash('promotion_notice', $promotionNotice);
+            $couponCode = null;
+            $promotionQuote = $promotions->quote($client, $cart, null, false, $branchId);
+        }
+
+        $setting = Setting::current();
+        $deliveryConfig = $this->deliveryConfig($setting);
+        $displayCart = $promotionQuote['cart_lines'];
+        $summary = $this->summary(
+            $displayCart,
+            $setting,
+            'within_1km',
+            $orderType,
+            (float) $promotionQuote['coupon_discount'],
+            (float) $promotionQuote['cart_subtotal']
+        );
+
+        $summaryHtml = view('website.checkout.partials.summary-content', [
+            'cart' => $displayCart,
+            'summary' => $summary,
+            'deliveryConfig' => $deliveryConfig,
+            'promotionQuote' => $promotionQuote,
+            'selectedBranchId' => $branchId,
+        ])->render();
+
+        $couponPanelHtml = view('website.checkout.partials.coupon-panel', [
+            'promotionQuote' => $promotionQuote,
+            'couponCode' => $couponCode,
+            'selectedBranchId' => $branchId,
+            'promotionNotice' => $promotionNotice,
+        ])->render();
+
+        return response()->json([
+            'summary_html' => $summaryHtml,
+            'coupon_panel_html' => $couponPanelHtml,
+            'before_delivery' => (float) $summary['before_delivery'],
+            'coupon_removed' => $promotionNotice !== null,
+            'branch_id' => $branchId,
+        ]);
     }
 
     public function applyCoupon(Request $request, PromotionService $promotions): RedirectResponse

@@ -46,23 +46,9 @@
   @if($errors->any())
     <div class="order-availability-message" role="alert" style="margin-bottom:16px">{{ $errors->first() }}</div>
   @endif
-  @if(($promotionQuote['coupons_enabled'] ?? false))
-    <div class="first-order-offer" style="margin-bottom:18px">
-      @if(!empty($couponCode) && !empty($promotionQuote['coupon']))
-        <strong>Coupon {{ $promotionQuote['coupon']->code }} applied</strong>
-        <span>Discount: TK {{ $formatCheckoutMoney($promotionQuote['coupon_discount']) }}. BOGO will not apply while this coupon is active.</span>
-        <form action="{{ route('checkout.coupon.remove') }}" method="post" style="margin-top:10px">@csrf<button type="submit" class="btn-wc-hero" style="width:auto;padding:9px 14px">Remove Coupon</button></form>
-      @else
-        <strong>Have a coupon code?</strong>
-        <form action="{{ route('checkout.coupon.apply') }}" method="post" class="d-flex gap-2 flex-wrap" style="margin-top:10px">@csrf
-          <input type="text" name="coupon_code" value="{{ old('coupon_code') }}" maxlength="80" placeholder="Enter coupon code" required style="flex:1;min-width:180px">
-          <input type="hidden" name="branch_id" id="checkoutCouponBranchId" value="{{ $selectedBranchId ?? '' }}">
-          <button type="submit" class="btn-wc-hero" style="width:auto;padding:9px 14px">Apply Coupon</button>
-        </form>
-        <small class="d-block mt-2">Select a branch before applying a coupon. Branch-specific offers and coupons are checked against the selected branch.</small>
-      @endif
-    </div>
-  @endif
+  <div id="checkoutCouponPanel">
+    @include('website.checkout.partials.coupon-panel', ['promotionQuote' => $promotionQuote, 'couponCode' => $couponCode, 'selectedBranchId' => $selectedBranchId, 'promotionNotice' => $promotionNotice ?? null])
+  </div>
 
   <form class="contact-form checkout-form" action="{{ route('checkout.process') }}" method="post">
     @csrf
@@ -136,61 +122,9 @@
       </div>
 
       <div class="checkout-summary">
-        <h2 class="contact-form-title">Order Summary</h2>
-        @if(!empty($promotionQuote['bogo_offer']))
-          <div class="first-order-offer">
-            <strong>{{ $promotionQuote['bogo_offer']->name }}</strong>
-            <span>{{ $promotionQuote['free_quantity'] }} free matching item(s) will be added for the selected branch.</span>
-          </div>
-        @elseif(empty($selectedBranchId) && ($promotionQuote['bogo_enabled'] ?? false))
-          <div class="first-order-offer"><strong>BOGO offers</strong><span id="checkoutBogoBranchMessage">Select a branch to check branch-specific offers. The final offer is validated when you place the order.</span></div>
-        @endif
-        @foreach($cart as $cartKey => $row)
-          @php
-            $unitPrice = (float) ($row['unit_price'] ?? 0);
-            $addonTotal = (float) ($row['addon_total'] ?? collect($row['addons'] ?? [])->sum(fn ($addon) => (float) ($addon['price'] ?? 0)));
-            $combinedUnitPrice = $unitPrice + $addonTotal;
-            $quantity = max(1, (int) ($row['quantity'] ?? 1));
-          @endphp
-          <div class="checkout-item">
-            @if(!empty($row['image']))<img src="{{ $adminAssetUrl($row['image']) }}" alt="{{ $row['name'] }}" class="checkout-item-img">@endif
-            <div class="checkout-item-info">
-              <h4>{{ $row['name'] }}</h4>
-              <span class="checkout-base-price">{{ $row['size_label'] ?? 'Regular' }} - TK {{ $formatCheckoutMoney($unitPrice) }}</span>
-              @if(!empty($row['addons']))
-                <div class="checkout-addon-prices mt-1">
-                  @foreach($row['addons'] as $addon)
-                    <small class="d-block" style="line-height:1.45;overflow-wrap:anywhere;">
-                      {{ $addon['name'] ?? '' }}@if(filled($addon['description'] ?? null))/{{ $addon['description'] }}@endif
-                      - TK {{ $formatCheckoutMoney($addon['price'] ?? 0) }}
-                    </small>
-                  @endforeach
-                </div>
-              @endif
-              <strong class="checkout-combined-price">TK {{ $formatCheckoutMoney($combinedUnitPrice) }}</strong>
-              @if($quantity > 1)
-                <small class="checkout-line-total">Total ({{ $quantity }} items) - TK {{ $formatCheckoutMoney($row['line_total'] ?? ($combinedUnitPrice * $quantity)) }}</small>
-              @endif
-              @if(!empty($promotionQuote['bogo_offer']) && in_array((string) $cartKey, $promotionQuote['free_cart_keys'] ?? [], true))
-                <span class="checkout-free-line">🎁 1 FREE matching item for this food</span>
-              @endif
-            </div>
-          </div>
-        @endforeach
-        <div class="checkout-totals">
-          <div class="checkout-total-row"><span>Subtotal</span><span>TK {{ $formatCheckoutMoney($summary['subtotal']) }}</span></div>
-          @if(($summary['discount'] ?? 0) > 0)
-            <div class="checkout-total-row"><span>Coupon Discount</span><span>- TK {{ $formatCheckoutMoney($summary['discount']) }}</span></div>
-          @endif
-          @if(($summary['tax_rate'] ?? 0) > 0)
-            <div class="checkout-total-row"><span>{{ $summary['tax_label'] }} ({{ $formatCheckoutMoney($summary['tax_rate']) }}%)</span><span>TK {{ $formatCheckoutMoney($summary['tax']) }}</span></div>
-          @endif
-          @if($deliveryConfig['enabled'])
-            <div class="checkout-total-row" id="checkoutDeliveryFeeRow"><span>Delivery Fee</span><span id="checkoutDeliveryFee">TK {{ $formatCheckoutMoney($summary['delivery']) }}</span></div>
-          @endif
-          <div class="checkout-total-row checkout-total-final"><span>Total</span><span id="checkoutGrandTotal">TK {{ $formatCheckoutMoney($summary['grand']) }}</span></div>
+        <div id="checkoutSummaryContent">
+          @include('website.checkout.partials.summary-content', ['cart' => $cart, 'summary' => $summary, 'deliveryConfig' => $deliveryConfig, 'promotionQuote' => $promotionQuote, 'selectedBranchId' => $selectedBranchId])
         </div>
-        <button type="submit" class="btn-wc-hero checkout-place-order" id="checkoutPlaceOrder" disabled>Choose a branch to order</button>
       </div>
     </div>
   </form>
@@ -204,81 +138,213 @@ document.addEventListener('DOMContentLoaded', function () {
   const addressGroup = document.getElementById('checkoutDeliveryAddressGroup');
   const addressInput = document.getElementById('checkout-address');
   const deliveryInfo = document.getElementById('checkoutDeliveryInfoGroup');
-  const deliveryRow = document.getElementById('checkoutDeliveryFeeRow');
-  const deliveryFee = document.getElementById('checkoutDeliveryFee');
-  const grandTotal = document.getElementById('checkoutGrandTotal');
-  const paymentLabel = document.getElementById('checkoutPaymentLabel');
-  const baseAmount = Number(@json($summary['before_delivery']));
+  const form = document.querySelector('.checkout-form');
+  const branchInputs = document.querySelectorAll('input[name="branch_id"]');
+  const orderStatus = document.getElementById('branchOrderingStatus');
+  const endpointBase = @json(url('/branch'));
+  const promotionPreviewUrl = @json(route('checkout.promotion-preview'));
+  const csrfToken = form.querySelector('input[name="_token"]')?.value || '';
   const deliveryAmount = Number(@json($deliveryConfig['enabled'] ? $deliveryConfig['within'] : 0));
+  let baseAmount = Number(@json($summary['before_delivery']));
+  let branchOpen = false;
+  let branchStatusMessage = '';
+  let promotionPreviewReady = Boolean(document.querySelector('input[name="branch_id"]:checked'));
+  let promotionPreviewMessage = '';
+  let statusRequest = 0;
+  let promotionRequest = 0;
+  let submitting = false;
   const formatMoney = number => Number(number).toFixed(2).replace(/\.?0+$/, '');
+
+  function selectedBranch() {
+    return document.querySelector('input[name="branch_id"]:checked');
+  }
+
+  function updateCouponBranchInput() {
+    const input = document.getElementById('checkoutCouponBranchId');
+    if (input) input.value = selectedBranch()?.value || '';
+  }
+
+  function setCouponPanelBusy(busy) {
+    const panel = document.getElementById('checkoutCouponPanel');
+    if (!panel) return;
+    panel.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = busy; });
+  }
+
+  function renderStatus() {
+    const orderButton = document.getElementById('checkoutPlaceOrder');
+    const checked = selectedBranch();
+    if (orderButton) {
+      orderButton.disabled = !checked || !branchOpen || !promotionPreviewReady || submitting;
+      if (!checked) orderButton.textContent = 'Choose a branch to order';
+      else if (!promotionPreviewReady) orderButton.textContent = 'Updating offers…';
+      else if (!branchOpen) orderButton.textContent = 'Ordering unavailable';
+      else orderButton.textContent = 'Place Order';
+    }
+
+    const message = !checked
+      ? 'Please select a branch to check ordering availability.'
+      : (promotionPreviewMessage || branchStatusMessage);
+    orderStatus.hidden = !message;
+    orderStatus.textContent = message || '';
+  }
 
   function syncOrderType() {
     const chosen = document.querySelector('input[name="order_type"]:checked');
     const type = chosen ? chosen.value : 'delivery';
     const isDelivery = type === 'delivery';
+    const deliveryRow = document.getElementById('checkoutDeliveryFeeRow');
+    const deliveryFee = document.getElementById('checkoutDeliveryFee');
+    const grandTotal = document.getElementById('checkoutGrandTotal');
+    const paymentLabel = document.getElementById('checkoutPaymentLabel');
     addressGroup.hidden = !isDelivery;
     addressInput.required = isDelivery;
     addressInput.disabled = !isDelivery;
     if (deliveryInfo) deliveryInfo.hidden = !isDelivery;
     if (deliveryRow) deliveryRow.hidden = !isDelivery;
     if (deliveryFee) deliveryFee.textContent = 'TK ' + formatMoney(isDelivery ? deliveryAmount : 0);
-    grandTotal.textContent = 'TK ' + formatMoney(Math.ceil(Number((baseAmount + (isDelivery ? deliveryAmount : 0)).toFixed(2))));
-    paymentLabel.textContent = isDelivery ? 'Cash on Delivery' : 'Cash on Collection';
+    if (grandTotal) grandTotal.textContent = 'TK ' + formatMoney(Math.ceil(Number((baseAmount + (isDelivery ? deliveryAmount : 0)).toFixed(2))));
+    if (paymentLabel) paymentLabel.textContent = isDelivery ? 'Cash on Delivery' : 'Cash on Collection';
   }
-  typeInputs.forEach(input => input.addEventListener('change', syncOrderType));
-  syncOrderType();
-  const branchInputs = document.querySelectorAll('input[name="branch_id"]');
-  const couponBranchInput = document.getElementById('checkoutCouponBranchId');
-  const bogoBranchMessage = document.getElementById('checkoutBogoBranchMessage');
-  function syncCouponBranch() { const checked = document.querySelector('input[name="branch_id"]:checked'); if (couponBranchInput) couponBranchInput.value = checked ? checked.value : ''; if (checked && bogoBranchMessage) bogoBranchMessage.textContent = 'Selected branch will be checked for eligible BOGO offers when you place the order.'; }
-  branchInputs.forEach(input => input.addEventListener('change', syncCouponBranch));
-  syncCouponBranch();
-  const orderButton = document.getElementById('checkoutPlaceOrder');
-  const orderStatus = document.getElementById('branchOrderingStatus');
-  const form = document.querySelector('.checkout-form');
-  const endpointBase = @json(url('/branch'));
-  let branchOpen = false;
-  let statusRequest = 0;
-  function renderStatus(open, message) {
-    branchOpen = open;
-    orderButton.disabled = !open;
-    orderButton.textContent = open ? 'Place Order' : 'Ordering unavailable';
-    orderStatus.hidden = !message;
-    orderStatus.textContent = message || '';
-  }
+
   async function refreshBranchStatus() {
-    const checked = document.querySelector('input[name="branch_id"]:checked');
+    const checked = selectedBranch();
     const requestNumber = ++statusRequest;
     if (!checked) {
-      renderStatus(false, 'Please select a branch to check ordering availability.');
+      branchOpen = false;
+      branchStatusMessage = 'Please select a branch to check ordering availability.';
+      renderStatus();
       return false;
     }
-    renderStatus(false, 'Checking branch availability…');
+
+    branchOpen = false;
+    branchStatusMessage = 'Checking branch availability…';
+    renderStatus();
     try {
       const response = await fetch(endpointBase + '/' + encodeURIComponent(checked.value) + '/order-status', {
-        headers:{'Accept':'application/json'}, credentials:'same-origin', cache:'no-store'
+        headers: {'Accept': 'application/json'}, credentials: 'same-origin', cache: 'no-store'
       });
       if (!response.ok) throw new Error('Status could not be checked');
       const status = await response.json();
       if (requestNumber !== statusRequest) return false;
-      renderStatus(Boolean(status.can_order), status.can_order ? '' : status.message);
-      return Boolean(status.can_order);
-    } catch (e) {
-      if (requestNumber === statusRequest) renderStatus(false, 'Unable to verify branch availability. Please try again.');
+      branchOpen = Boolean(status.can_order);
+      branchStatusMessage = status.can_order ? '' : (status.message || 'Online ordering is unavailable for this branch.');
+      renderStatus();
+      return branchOpen;
+    } catch (error) {
+      if (requestNumber === statusRequest) {
+        branchOpen = false;
+        branchStatusMessage = 'Unable to verify branch availability. Please try again.';
+        renderStatus();
+      }
       return false;
     }
   }
-  branchInputs.forEach(input => input.addEventListener('change', refreshBranchStatus));
-  refreshBranchStatus();
-  setInterval(refreshBranchStatus, 60000);
-  let submitting = false;
+
+  async function refreshPromotionPreview() {
+    const checked = selectedBranch();
+    const requestNumber = ++promotionRequest;
+    if (!checked) {
+      promotionPreviewReady = false;
+      promotionPreviewMessage = '';
+      renderStatus();
+      return false;
+    }
+
+    promotionPreviewReady = false;
+    promotionPreviewMessage = 'Updating offers for the selected branch…';
+    updateCouponBranchInput();
+    setCouponPanelBusy(true);
+    renderStatus();
+
+    try {
+      const chosenOrderType = document.querySelector('input[name="order_type"]:checked');
+      const response = await fetch(promotionPreviewUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({branch_id: checked.value, order_type: chosenOrderType ? chosenOrderType.value : 'delivery'})
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Promotions could not be refreshed.');
+      if (requestNumber !== promotionRequest) return false;
+
+      const summaryContent = document.getElementById('checkoutSummaryContent');
+      const couponPanel = document.getElementById('checkoutCouponPanel');
+      if (summaryContent) summaryContent.innerHTML = result.summary_html;
+      if (couponPanel) couponPanel.innerHTML = result.coupon_panel_html;
+      baseAmount = Number(result.before_delivery || 0);
+      promotionPreviewReady = true;
+      promotionPreviewMessage = '';
+      setCouponPanelBusy(false);
+      syncOrderType();
+      renderStatus();
+      return true;
+    } catch (error) {
+      if (requestNumber === promotionRequest) {
+        promotionPreviewReady = false;
+        promotionPreviewMessage = error.message || 'Unable to refresh branch offers. Please reload checkout before placing your order.';
+        setCouponPanelBusy(false);
+        updateCouponBranchInput();
+        renderStatus();
+      }
+      return false;
+    }
+  }
+
+  typeInputs.forEach(input => input.addEventListener('change', syncOrderType));
+  syncOrderType();
+
+  branchInputs.forEach(input => input.addEventListener('change', function () {
+    branchOpen = false;
+    branchStatusMessage = '';
+    promotionPreviewReady = false;
+    promotionPreviewMessage = 'Updating offers for the selected branch…';
+    updateCouponBranchInput();
+    renderStatus();
+    refreshBranchStatus();
+    refreshPromotionPreview();
+  }));
+
+  updateCouponBranchInput();
+  if (selectedBranch()) {
+    refreshBranchStatus();
+    refreshPromotionPreview();
+  } else {
+    renderStatus();
+  }
+
+  setInterval(function () {
+    if (selectedBranch() && !submitting) {
+      refreshBranchStatus();
+      refreshPromotionPreview();
+    }
+  }, 60000);
+
   form.addEventListener('submit', async function (event) {
     if (submitting) return;
     event.preventDefault();
+    if (!selectedBranch()) {
+      branchOpen = false;
+      branchStatusMessage = 'Please select a branch before placing your order.';
+      renderStatus();
+      return;
+    }
+    if (!promotionPreviewReady) {
+      const refreshed = await refreshPromotionPreview();
+      // Stop after a refresh so the customer can see any changed discount/total before confirming.
+      if (!refreshed) return;
+      return;
+    }
     const open = await refreshBranchStatus();
-    if (!open) return;
+    if (!open || !promotionPreviewReady) return;
     submitting = true;
-    orderButton.disabled = true;
+    renderStatus();
     form.submit();
   });
 });
