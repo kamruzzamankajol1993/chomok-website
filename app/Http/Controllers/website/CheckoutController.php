@@ -6,42 +6,95 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Client;
 use App\Models\Order;
+use App\Models\PromotionUsage;
 use App\Models\Setting;
-use App\Services\OrderService;
 use App\Services\BranchOrderHours;
-use Illuminate\Validation\ValidationException;
+use App\Services\OrderService;
+use App\Services\PromotionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CheckoutController extends Controller
 {
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request, PromotionService $promotions): View|RedirectResponse
     {
-        $cart = $request->session()->get('cart', []);
-        if (empty($cart)) {
+        $sessionCart = $request->session()->get('cart', []);
+        if (empty($sessionCart)) {
             return redirect()->route('menu.index')->with('error', 'Your cart is empty.');
         }
 
         $client = Auth::guard('client')->user();
         $branches = Branch::query()->where('status', 'active')->where('accepting_orders', true)->orderBy('name')->get();
         $setting = Setting::current();
-        $summary = $this->summary($cart, $setting, 'within_1km', old('order_type', 'delivery'));
+        $selectedBranchId = old('branch_id', $request->session()->get('checkout_branch_id'));
+        $selectedBranchId = is_numeric($selectedBranchId) ? (int) $selectedBranchId : null;
+        $couponCode = $request->session()->get('checkout_coupon_code');
+
+        try {
+            $promotionQuote = $promotions->quote($client, $sessionCart, $couponCode, false, $selectedBranchId);
+        } catch (ValidationException $exception) {
+            $request->session()->forget('checkout_coupon_code');
+            return redirect()->route('checkout.index')->withErrors($exception->errors());
+        }
+
+        $cart = $promotionQuote['cart_lines'];
+        $summary = $this->summary(
+            $cart,
+            $setting,
+            'within_1km',
+            old('order_type', 'delivery'),
+            (float) $promotionQuote['coupon_discount'],
+            (float) $promotionQuote['cart_subtotal']
+        );
         $deliveryConfig = $this->deliveryConfig($setting);
-        $firstOrderOfferEligible = ! Order::withTrashed()
-            ->where('client_id', $client->id)
-            ->exists();
 
         return view('website.checkout.checkout', compact(
-            'cart', 'client', 'branches', 'summary', 'deliveryConfig', 'firstOrderOfferEligible'
+            'cart', 'client', 'branches', 'summary', 'deliveryConfig', 'promotionQuote', 'couponCode', 'selectedBranchId'
         ));
     }
 
-    public function processCheckout(Request $request, OrderService $orders, BranchOrderHours $hours): RedirectResponse
+    public function applyCoupon(Request $request, PromotionService $promotions): RedirectResponse
     {
+        $data = $request->validate([
+            'coupon_code' => ['required', 'string', 'max:80'],
+            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($query) => $query->where('status', 'active')->where('accepting_orders', true)->whereNull('deleted_at'))],
+        ]);
+        $cart = $request->session()->get('cart', []);
+        if (empty($cart)) {
+            return redirect()->route('menu.index')->with('error', 'Your cart is empty.');
+        }
+
+        $client = Auth::guard('client')->user();
+        $code = strtoupper(trim((string) $data['coupon_code']));
+        $branchId = (int) $data['branch_id'];
+        // Validate before replacing a currently applied code.
+        $quote = $promotions->quote($client, $cart, $code, false, $branchId);
+        $request->session()->put('checkout_coupon_code', $quote['coupon']->code);
+        $request->session()->put('checkout_branch_id', $branchId);
+
+        return redirect()->route('checkout.index')->with(
+            'success',
+            'Coupon '.$quote['coupon']->code.' applied. BOGO will not be applied while this coupon is active.'
+        );
+    }
+
+    public function removeCoupon(Request $request): RedirectResponse
+    {
+        $request->session()->forget('checkout_coupon_code');
+        return redirect()->route('checkout.index')->with('success', 'Coupon removed. Any eligible BOGO offer can now apply.');
+    }
+
+    public function processCheckout(
+        Request $request,
+        OrderService $orders,
+        BranchOrderHours $hours,
+        PromotionService $promotions
+    ): RedirectResponse {
         $cart = $request->session()->get('cart', []);
         if (empty($cart)) {
             return redirect()->route('menu.index')->with('error', 'Your cart is empty.');
@@ -51,38 +104,34 @@ class CheckoutController extends Controller
             'phone' => ['required', 'string', 'max:50'],
             'order_type' => ['required', Rule::in(['delivery', 'takeaway', 'pickup'])],
             'address' => ['required_if:order_type,delivery', 'nullable', 'string', 'max:2000'],
-            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($q) => $q->where('status', 'active')->where('accepting_orders', 1)->whereNull('deleted_at'))],
+            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where(fn ($query) => $query->where('status', 'active')->where('accepting_orders', 1)->whereNull('deleted_at'))],
         ]);
 
+        $branchId = (int) $data['branch_id'];
+        $request->session()->put('checkout_branch_id', $branchId);
         $paymentType = 'cash_on_delivery';
         $setting = Setting::current();
         $deliveryConfig = $this->deliveryConfig($setting);
         $deliveryCharge = $data['order_type'] === 'delivery' && $deliveryConfig['enabled'] ? $deliveryConfig['within'] : 0.0;
+        $couponCode = $request->session()->get('checkout_coupon_code');
 
-        // Lock the client row while checking/creating the first order.
-        // This prevents two near-simultaneous checkout requests from both receiving
-        // the one-time Buy 1 Get 1 Free offer.
-        $order = DB::transaction(function () use ($request, $orders, $hours, $cart, $data, $paymentType, $deliveryCharge): Order {
-            // Never trust the browser's disabled button: validate the chosen branch on the server.
-            $branch = Branch::query()->whereKey($data['branch_id'])->lockForUpdate()->firstOrFail();
+        $order = DB::transaction(function () use (
+            $request, $orders, $hours, $promotions, $cart, $data, $paymentType, $deliveryCharge, $couponCode, $branchId
+        ): Order {
+            $branch = Branch::query()->whereKey($branchId)->lockForUpdate()->firstOrFail();
             $availability = $hours->status($branch);
             if (! $availability['can_order']) {
                 throw ValidationException::withMessages(['branch_id' => $availability['message']]);
             }
 
-            $client = Client::query()
-                ->whereKey(Auth::guard('client')->id())
-                ->lockForUpdate()
-                ->firstOrFail();
+            $client = Client::query()->whereKey(Auth::guard('client')->id())->lockForUpdate()->firstOrFail();
+            $quote = $promotions->quote($client, $cart, $couponCode, true, $branchId);
+            $freeCartKeys = $quote['free_cart_keys'];
+            $offer = $quote['bogo_offer'];
+            $coupon = $quote['coupon'];
 
-            $firstOrderOfferEligible = ! Order::withTrashed()
-                ->where('client_id', $client->id)
-                ->exists();
-
-            // Session cart preserves insertion order. Only the FIRST remaining food
-            // receives ONE free matching unit, even if quantity > 1 or other foods follow.
             $items = [];
-            foreach (array_values($cart) as $index => $row) {
+            foreach ($cart as $cartKey => $row) {
                 $paidItem = [
                     'menu_item_id' => (int) $row['menu_item_id'],
                     'menu_item_price_id' => (int) $row['menu_item_price_id'],
@@ -92,43 +141,85 @@ class CheckoutController extends Controller
                     'note' => null,
                 ];
                 $items[] = $paidItem;
-                if ($firstOrderOfferEligible && $index === 0) {
+
+                if ($offer && in_array((string) $cartKey, $freeCartKeys, true)) {
                     $freeItem = $paidItem;
                     $freeItem['quantity'] = 1;
-                    $freeItem['note'] = 'BOGO FREE: One matching unit of the first food added to cart (same size and selected options).';
+                    $freeItem['note'] = 'BOGO FREE: Offer #'.$offer->id.' '.$offer->name.'; one free matching unit for this eligible cart food.';
                     $items[] = $freeItem;
                 }
             }
 
+            $orderNote = null;
+            if ($coupon) {
+                $orderNote = 'COUPON APPLIED: '.$coupon->code.'. Discount amount: ৳'.number_format((float) $quote['coupon_discount'], 2).'.';
+            } elseif ($offer) {
+                $orderNote = 'BOGO OFFER APPLIED: '.$offer->name.'. Free units: '.(int) $quote['free_quantity'].'.';
+            }
+
             $payload = [
-                'branch_id' => (int) $data['branch_id'],
+                'branch_id' => $branchId,
                 'client_id' => $client->id,
                 'customer_name' => $client->name,
                 'customer_phone' => trim($data['phone']),
                 'customer_email' => $client->email,
-                'customer_address' => $data['order_type'] === 'delivery' ? trim($data['address']) : null,
+                'customer_address' => $data['order_type'] === 'delivery' ? trim((string) $data['address']) : null,
                 'order_type' => $data['order_type'],
-                'delivery_address' => $data['order_type'] === 'delivery' ? trim($data['address']) : null,
+                'delivery_address' => $data['order_type'] === 'delivery' ? trim((string) $data['address']) : null,
                 'delivery_charge' => $deliveryCharge,
                 'delivery_charge_option' => null,
                 'discount_type' => 'fixed',
-                'discount_value' => 0,
+                'discount_value' => $coupon ? (float) $quote['coupon_discount'] : 0,
+                'discount_amount_override' => $coupon ? (float) $quote['coupon_discount'] : null,
                 'payment_type' => $paymentType,
                 'payment_reference' => null,
                 'paid_amount' => 0,
                 'status' => 'pending',
-                'note' => $firstOrderOfferEligible
-                    ? 'FIRST ORDER OFFER APPLIED: One free unit of the first cart food only; other foods are not eligible. Same size, add-ons and options as that food.'
-                    : null,
+                'note' => $orderNote,
                 'items' => $items,
             ];
 
-            return $orders->save($payload, null, 'website');
+            $order = $orders->save($payload, null, 'website');
+
+            if ($coupon) {
+                PromotionUsage::query()->create([
+                    'promotion_type' => 'coupon',
+                    'promotion_id' => $coupon->id,
+                    'order_id' => $order->id,
+                    'client_id' => $client->id,
+                    'client_key' => $promotions->clientKey($client),
+                    'discount_amount' => (float) $quote['coupon_discount'],
+                    'free_quantity' => 0,
+                    'metadata' => [
+                        'coupon_code' => $coupon->code,
+                        'coupon_discount_type' => $coupon->discount_type,
+                        'coupon_discount_value' => (float) $coupon->discount_value,
+                        'eligible_subtotal' => (float) $quote['coupon_eligible_subtotal'],
+                        'branch_id' => $branchId,
+                    ],
+                ]);
+            } elseif ($offer) {
+                PromotionUsage::query()->create([
+                    'promotion_type' => 'bogo_offer',
+                    'promotion_id' => $offer->id,
+                    'order_id' => $order->id,
+                    'client_id' => $client->id,
+                    'client_key' => $promotions->clientKey($client),
+                    'discount_amount' => 0,
+                    'free_quantity' => (int) $quote['free_quantity'],
+                    'metadata' => [
+                        'offer_name' => $offer->name,
+                        'free_cart_keys' => $freeCartKeys,
+                        'branch_id' => $branchId,
+                    ],
+                ]);
+            }
+
+            return $order;
         });
 
-        $request->session()->forget('cart');
+        $request->session()->forget(['cart', 'checkout_coupon_code', 'checkout_branch_id']);
         $request->session()->put('last_website_order_id', $order->id);
-
         return redirect()->route('checkout.success');
     }
 
@@ -140,15 +231,11 @@ class CheckoutController extends Controller
         }
         $client = Auth::guard('client')->user();
         $order = Order::query()->where('client_id', $client->id)->with('branch')->findOrFail($id);
-
         return view('website.checkout.success', compact('order'));
     }
 
     private function deliveryConfig(Setting $setting): array
     {
-        // Website delivery information is fixed for now. The customer does not
-        // choose a distance option at checkout; the order starts with the
-        // within-1-km charge and the admin can adjust the final delivery fee.
         return [
             'enabled' => (bool) ($setting->delivery_charge_enabled ?? true),
             'within' => 60.0,
@@ -157,20 +244,32 @@ class CheckoutController extends Controller
         ];
     }
 
-    private function summary(array $cart, Setting $setting, string $deliveryOption, string $orderType = 'delivery'): array
-    {
-        $subtotal = round(collect($cart)->sum(fn ($row) => (float) ($row['line_total'] ?? 0)), 2);
+    private function summary(
+        array $cart,
+        Setting $setting,
+        string $deliveryOption,
+        string $orderType = 'delivery',
+        float $discount = 0.0,
+        ?float $subtotalOverride = null
+    ): array {
+        $subtotal = $subtotalOverride !== null
+            ? max(round($subtotalOverride, 2), 0)
+            : round(collect($cart)->sum(fn ($row) => (float) ($row['line_total'] ?? 0)), 2);
+        $discount = min(max(round($discount, 2), 0), $subtotal);
+        $netSubtotal = max(round($subtotal - $discount, 2), 0);
         $taxRate = max((float) $setting->tax_rate, 0);
-        $tax = $taxRate > 0 ? (float) ceil($subtotal * ($taxRate / 100)) : 0.0;
+        $tax = $taxRate > 0 ? (float) ceil($netSubtotal * ($taxRate / 100)) : 0.0;
         $deliveryConfig = $this->deliveryConfig($setting);
         $delivery = $deliveryConfig['enabled'] && $orderType === 'delivery'
             ? ($deliveryOption === 'outside_1km' ? $deliveryConfig['outside_base'] : $deliveryConfig['within'])
             : 0.0;
-        $beforeDelivery = round($subtotal + $tax, 2);
+        $beforeDelivery = round($netSubtotal + $tax, 2);
         $grand = (float) ceil(round($beforeDelivery + $delivery, 2));
 
         return [
             'subtotal' => $subtotal,
+            'discount' => $discount,
+            'net_subtotal' => $netSubtotal,
             'tax' => $tax,
             'delivery' => $delivery,
             'before_delivery' => $beforeDelivery,

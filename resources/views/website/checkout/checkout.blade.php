@@ -46,6 +46,24 @@
   @if($errors->any())
     <div class="order-availability-message" role="alert" style="margin-bottom:16px">{{ $errors->first() }}</div>
   @endif
+  @if(($promotionQuote['coupons_enabled'] ?? false))
+    <div class="first-order-offer" style="margin-bottom:18px">
+      @if(!empty($couponCode) && !empty($promotionQuote['coupon']))
+        <strong>Coupon {{ $promotionQuote['coupon']->code }} applied</strong>
+        <span>Discount: TK {{ $formatCheckoutMoney($promotionQuote['coupon_discount']) }}. BOGO will not apply while this coupon is active.</span>
+        <form action="{{ route('checkout.coupon.remove') }}" method="post" style="margin-top:10px">@csrf<button type="submit" class="btn-wc-hero" style="width:auto;padding:9px 14px">Remove Coupon</button></form>
+      @else
+        <strong>Have a coupon code?</strong>
+        <form action="{{ route('checkout.coupon.apply') }}" method="post" class="d-flex gap-2 flex-wrap" style="margin-top:10px">@csrf
+          <input type="text" name="coupon_code" value="{{ old('coupon_code') }}" maxlength="80" placeholder="Enter coupon code" required style="flex:1;min-width:180px">
+          <input type="hidden" name="branch_id" id="checkoutCouponBranchId" value="{{ $selectedBranchId ?? '' }}">
+          <button type="submit" class="btn-wc-hero" style="width:auto;padding:9px 14px">Apply Coupon</button>
+        </form>
+        <small class="d-block mt-2">Select a branch before applying a coupon. Branch-specific offers and coupons are checked against the selected branch.</small>
+      @endif
+    </div>
+  @endif
+
   <form class="contact-form checkout-form" action="{{ route('checkout.process') }}" method="post">
     @csrf
     <div class="checkout-layout">
@@ -83,7 +101,7 @@
           <div class="checkout-choice-grid" role="radiogroup" aria-label="Select branch">
             @foreach($branches as $branch)
               <label class="checkout-choice">
-                <input type="radio" name="branch_id" value="{{ $branch->id }}" @checked((string)old('branch_id') === (string)$branch->id) required>
+                <input type="radio" name="branch_id" value="{{ $branch->id }}" @checked((string)old('branch_id', $selectedBranchId ?? '') === (string)$branch->id) required>
                 <span class="checkout-choice-card">
                   <span class="checkout-choice-dot"></span>
                   <span class="checkout-choice-copy"><strong>{{ $branch->name }}</strong>@if($branch->address)<small>{{ $branch->address }}</small>@endif</span>
@@ -119,13 +137,15 @@
 
       <div class="checkout-summary">
         <h2 class="contact-form-title">Order Summary</h2>
-        @if($firstOrderOfferEligible)
+        @if(!empty($promotionQuote['bogo_offer']))
           <div class="first-order-offer">
-            <strong>First Order Offer — Buy 1 Get 1 Free</strong>
-            <span>First order only: Get 1 FREE matching item with the first food in your cart.</span>
+            <strong>{{ $promotionQuote['bogo_offer']->name }}</strong>
+            <span>{{ $promotionQuote['free_quantity'] }} free matching item(s) will be added for the selected branch.</span>
           </div>
+        @elseif(empty($selectedBranchId) && ($promotionQuote['bogo_enabled'] ?? false))
+          <div class="first-order-offer"><strong>BOGO offers</strong><span id="checkoutBogoBranchMessage">Select a branch to check branch-specific offers. The final offer is validated when you place the order.</span></div>
         @endif
-        @foreach($cart as $row)
+        @foreach($cart as $cartKey => $row)
           @php
             $unitPrice = (float) ($row['unit_price'] ?? 0);
             $addonTotal = (float) ($row['addon_total'] ?? collect($row['addons'] ?? [])->sum(fn ($addon) => (float) ($addon['price'] ?? 0)));
@@ -151,14 +171,17 @@
               @if($quantity > 1)
                 <small class="checkout-line-total">Total ({{ $quantity }} items) - TK {{ $formatCheckoutMoney($row['line_total'] ?? ($combinedUnitPrice * $quantity)) }}</small>
               @endif
-              @if($firstOrderOfferEligible && $loop->first)
-                <span class="checkout-free-line">🎁 1 FREE matching item (first cart food only)</span>
+              @if(!empty($promotionQuote['bogo_offer']) && in_array((string) $cartKey, $promotionQuote['free_cart_keys'] ?? [], true))
+                <span class="checkout-free-line">🎁 1 FREE matching item for this food</span>
               @endif
             </div>
           </div>
         @endforeach
         <div class="checkout-totals">
           <div class="checkout-total-row"><span>Subtotal</span><span>TK {{ $formatCheckoutMoney($summary['subtotal']) }}</span></div>
+          @if(($summary['discount'] ?? 0) > 0)
+            <div class="checkout-total-row"><span>Coupon Discount</span><span>- TK {{ $formatCheckoutMoney($summary['discount']) }}</span></div>
+          @endif
           @if(($summary['tax_rate'] ?? 0) > 0)
             <div class="checkout-total-row"><span>{{ $summary['tax_label'] }} ({{ $formatCheckoutMoney($summary['tax_rate']) }}%)</span><span>TK {{ $formatCheckoutMoney($summary['tax']) }}</span></div>
           @endif
@@ -205,6 +228,11 @@ document.addEventListener('DOMContentLoaded', function () {
   typeInputs.forEach(input => input.addEventListener('change', syncOrderType));
   syncOrderType();
   const branchInputs = document.querySelectorAll('input[name="branch_id"]');
+  const couponBranchInput = document.getElementById('checkoutCouponBranchId');
+  const bogoBranchMessage = document.getElementById('checkoutBogoBranchMessage');
+  function syncCouponBranch() { const checked = document.querySelector('input[name="branch_id"]:checked'); if (couponBranchInput) couponBranchInput.value = checked ? checked.value : ''; if (checked && bogoBranchMessage) bogoBranchMessage.textContent = 'Selected branch will be checked for eligible BOGO offers when you place the order.'; }
+  branchInputs.forEach(input => input.addEventListener('change', syncCouponBranch));
+  syncCouponBranch();
   const orderButton = document.getElementById('checkoutPlaceOrder');
   const orderStatus = document.getElementById('branchOrderingStatus');
   const form = document.querySelector('.checkout-form');

@@ -69,6 +69,8 @@ Route::middleware('auth:client')->group(function () {
     Route::get('/client/session-status', [AuthController::class, 'sessionStatus'])->name('client.session-status');
 
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+    Route::post('/checkout/coupon/apply', [CheckoutController::class, 'applyCoupon'])->middleware('throttle:10,1')->name('checkout.coupon.apply');
+    Route::post('/checkout/coupon/remove', [CheckoutController::class, 'removeCoupon'])->name('checkout.coupon.remove');
     Route::post('/checkout/process', [CheckoutController::class, 'processCheckout'])->name('checkout.process');
     Route::get('/checkout/success', [CheckoutController::class, 'checkoutSuccess'])->name('checkout.success');
 });

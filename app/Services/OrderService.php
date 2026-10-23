@@ -36,12 +36,20 @@ class OrderService
             ? $discountTypeInput
             : 'fixed';
         $discountValue = max((float) ($payload['discount_value'] ?? $payload['discount'] ?? 0), 0);
+        $hasDiscountAmountOverride = array_key_exists('discount_amount_override', $payload)
+            && $payload['discount_amount_override'] !== null;
         if ($discountType === 'percentage') {
             $discountValue = min($discountValue, 100);
-            $discount = (float) ceil($subtotal * ($discountValue / 100));
+            $calculatedDiscount = (float) ceil($subtotal * ($discountValue / 100));
         } else {
-            $discount = min($discountValue, $subtotal);
+            $calculatedDiscount = min($discountValue, $subtotal);
         }
+        // Website coupons may apply only to a subset of eligible, non-discounted food
+        // lines. In that case the checkout service supplies the verified amount while
+        // this service still persists the coupon's original type/value on the order.
+        $discount = $hasDiscountAmountOverride
+            ? min(max((float) $payload['discount_amount_override'], 0), $subtotal)
+            : $calculatedDiscount;
         $netSubtotal = max($subtotal - $discount, 0);
         $serviceRate = $orderType === 'dine_in' ? max((float) $setting->service_charge, 0) : 0;
         $serviceAmount = $serviceRate > 0 ? (float) ceil($netSubtotal * ($serviceRate / 100)) : 0.0;
